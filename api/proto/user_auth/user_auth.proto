@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package user_auth;
+
+option go_package = "github.com/mamataliev-dev/social-platform/api/gen/userauthpb;userauthpb";
+
+import "user/user.proto";
+import "google/api/annotations.proto";
+
+// AuthService handles sign-up & login.  Internal use only.
+service AuthService {
+  // Registers a new user and returns their profile.
+  rpc Register (RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = {
+      post: "/register"
+      body: "*"
+    };
+  }
+
+  // Validates credentials and returns the user profile.
+  rpc Login (LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/login"
+      body: "*"
+    };
+  }
+}
+
+message RegisterRequest {
+  string user_name  = 1;
+  string email      = 2;
+  string password   = 3;  // plain-text; service hashes internally
+  string nickname   = 4;
+  string bio        = 5;
+  string avatar_url = 6;
+}
+
+message RegisterResponse {
+  user.UserProfile user = 1;
+}
+
+message LoginRequest {
+  string email    = 1;
+  string password = 2;  // plain-text; service verifies internally
+}
+
+message LoginResponse {
+  user.UserProfile user = 1;
+}

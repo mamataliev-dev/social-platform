@@ -3,24 +3,45 @@ package config
 import (
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Env      string   `yaml:"env"`
-	Server   Server   `yaml:"server"`
-	Database Database `yaml:"database"`
-	Security Security `yaml:"security"`
-	Logging  Logging  `yaml:"logging"`
-	JWT      JWT      `yaml:"jwt"`
+	Env      string     `yaml:"env"`
+	Server   Server     `yaml:"server"`
+	GRPC     GRPCConfig `yaml:"grpc"`
+	Database Database   `yaml:"database"`
+	Security Security   `yaml:"security"`
+	Logging  Logging    `yaml:"logging"`
+	JWT      JWT        `yaml:"jwt"`
 }
 
 type Server struct {
 	Host  string `yaml:"host"`
 	Port  string `yaml:"port"`
 	Debug bool   `yaml:"debug"`
+}
+
+type KeepaliveConfig struct {
+	Time    time.Duration `yaml:"time"`
+	Timeout time.Duration `yaml:"timeout"`
+}
+
+type TLSConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	CertFile string `yaml:"cert_file"`
+	KeyFile  string `yaml:"key_file"`
+}
+
+type GRPCConfig struct {
+	Host                 string          `yaml:"host"`
+	Port                 int             `yaml:"port"`
+	MaxConcurrentStreams uint32          `yaml:"max_concurrent_streams"`
+	Keepalive            KeepaliveConfig `yaml:"keepalive"`
+	TLS                  TLSConfig       `yaml:"tls"`
 }
 
 type Database struct {
@@ -50,11 +71,9 @@ type Logging struct {
 func Load(path string) (*Config, error) {
 	var cfg Config
 
-	if err := godotenv.Load(".env", ".env.local"); err == nil {
+	if err := godotenv.Load(".env"); err == nil {
 		slog.Info("Environment variables loaded from .env files")
 	}
-
-	slog.Info("Loading config", "path", path)
 
 	raw, err := os.ReadFile(path)
 	if err != nil {
