@@ -40,11 +40,3 @@ test:
 fmt:
 	go fmt ./...
 	go vet ./...
-	go mod tidy
-
-# Proto generation
-proto:
-	protoc --proto_path=../shared/proto \
-	       --go_out=internal/gen \
-	       --go-grpc_out=internal/gen \
-	       ../shared/proto/user/user.proto

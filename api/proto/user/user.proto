@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package user;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/mamataliev-dev/social-platform/api/gen/userpb;userpb";
+
+// Public read-only user APIs.
+service UserService {
+  // Fetches a user profile by nickname.
+  rpc GetUserByNickname (GetUserByNicknameRequest) returns (GetUserByNicknameResponse);
+}
+
+// The canonical User profile message, published to clients.
+message User {
+  int32 id            = 1;
+  string user_name    = 2;
+  string email        = 3;
+  string password     = 4; // plain-text; service hashes internally
+  string nickname     = 5;
+  string bio          = 6;
+  string avatar_url   = 7;
+  google.protobuf.Timestamp last_login  = 8;
+  google.protobuf.Timestamp created_at  = 9;
+  google.protobuf.Timestamp updated_at  = 10;
+}
+
+message UserProfile {
+  int32  id           = 1;
+  string user_name    = 2;
+  string email        = 3;
+  string nickname     = 4;
+  string bio          = 5;
+  string avatar_url   = 6;
+  google.protobuf.Timestamp last_login  = 7;
+  google.protobuf.Timestamp created_at  = 8;
+  google.protobuf.Timestamp updated_at  = 9;
+}
+
+message GetUserByNicknameRequest {
+  string nickname = 1;
+}
+
+message GetUserByNicknameResponse {
+  User user = 1;
+}
+
