@@ -15,7 +15,7 @@ import (
 
 func TestTimeoutInterceptor_CustomTimeoutMethod_Success(t *testing.T) {
 	info := &grpc.UnaryServerInfo{
-		FullMethod: "/userauth.AuthService/Login",
+		FullMethod: "/user_auth.AuthService/Login",
 	}
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -47,7 +47,7 @@ func TestTimeoutInterceptor_DefaultTimeout_Success(t *testing.T) {
 
 func TestTimeoutInterceptor_RequestTimesOut(t *testing.T) {
 	info := &grpc.UnaryServerInfo{
-		FullMethod: "/userauth.AuthService/Login",
+		FullMethod: "/user_auth.AuthService/Login",
 	}
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -63,7 +63,7 @@ func TestTimeoutInterceptor_RequestTimesOut(t *testing.T) {
 	st, ok := status.FromError(err)
 	assert.True(t, ok)
 	assert.Equal(t, codes.DeadlineExceeded, st.Code())
-	assert.Contains(t, st.Message(), "request timed out after 2s on /userauth.AuthService/Login")
+	assert.Contains(t, st.Message(), "request timed out after 2s on /user_auth.AuthService/Login")
 }
 
 func TestTimeoutInterceptor_CustomShortTimeoutExceeded(t *testing.T) {

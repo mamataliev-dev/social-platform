@@ -165,7 +165,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	hasher.AssertExpectations(t)
 }
 
-// Change this code when protoc-gen-validate is installed
+// Change this code when protoc-gen-third_party is installed
 // Add input validation checker
 //func TestLogin_InvalidInput(t *testing.T) {
 //	authService := service.NewAuthService(nil, nil, nil)

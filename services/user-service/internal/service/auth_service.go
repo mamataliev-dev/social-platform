@@ -75,7 +75,7 @@ func (s *AuthService) Register(ctx context.Context, req *userauthpb.RegisterRequ
 }
 
 func (s *AuthService) Login(ctx context.Context, req *userauthpb.LoginRequest) (*userauthpb.AuthTokenResponse, error) {
-	// Include this code when protoc-gen-validate is installed
+	// Include this code when protoc-gen-third_party is installed
 	//if err := validation.ValidateNotEmpty(req.Email, req.Password); err != nil {
 	//	return nil, status.Error(codes.InvalidArgument, err.Error())
 	//}
