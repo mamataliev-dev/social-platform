@@ -2,10 +2,12 @@ package middleware
 
 import (
 	"context"
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 )
 
 func ValidationInterceptor() grpc.UnaryServerInterceptor {
