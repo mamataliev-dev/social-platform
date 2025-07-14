@@ -10,13 +10,13 @@ import (
 )
 
 var methodTimeouts = map[string]time.Duration{
-	"/userauth.AuthService/Login":    2 * time.Second,
-	"/userauth.AuthService/Register": 5 * time.Second,
+	"/user_auth.AuthService/Login":        2 * time.Second,
+	"/user_auth.AuthService/Register":     5 * time.Second,
+	"/user.UserService/GetUserByNickname": 300 * time.Millisecond,
 }
 
 const defaultTimeout = 10 * time.Second
 
-// Unary interceptor that applies method-specific timeouts
 func TimeoutInterceptor(
 	ctx context.Context,
 	req interface{},
@@ -28,7 +28,6 @@ func TimeoutInterceptor(
 		timeout = t
 	}
 
-	// Wrap the original context with a timeout
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 

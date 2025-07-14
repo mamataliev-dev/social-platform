@@ -7,6 +7,7 @@
 package userpb
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -22,10 +23,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The canonical User profile message, published to clients.
 type User struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	UserName      string                 `protobuf:"bytes,2,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
 	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
 	Password      string                 `protobuf:"bytes,4,opt,name=password,proto3" json:"password,omitempty"` // plain-text; service hashes internally
@@ -69,7 +69,7 @@ func (*User) Descriptor() ([]byte, []int) {
 	return file_user_user_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *User) GetId() int32 {
+func (x *User) GetId() int64 {
 	if x != nil {
 		return x.Id
 	}
@@ -141,7 +141,7 @@ func (x *User) GetUpdatedAt() *timestamppb.Timestamp {
 
 type UserProfile struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	UserName      string                 `protobuf:"bytes,2,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
 	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
 	Nickname      string                 `protobuf:"bytes,4,opt,name=nickname,proto3" json:"nickname,omitempty"`
@@ -184,7 +184,7 @@ func (*UserProfile) Descriptor() ([]byte, []int) {
 	return file_user_user_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *UserProfile) GetId() int32 {
+func (x *UserProfile) GetId() int64 {
 	if x != nil {
 		return x.Id
 	}
@@ -247,27 +247,27 @@ func (x *UserProfile) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-type GetUserByNicknameRequest struct {
+type FetchUserProfileByNicknameRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Nickname      string                 `protobuf:"bytes,1,opt,name=nickname,proto3" json:"nickname,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetUserByNicknameRequest) Reset() {
-	*x = GetUserByNicknameRequest{}
+func (x *FetchUserProfileByNicknameRequest) Reset() {
+	*x = FetchUserProfileByNicknameRequest{}
 	mi := &file_user_user_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetUserByNicknameRequest) String() string {
+func (x *FetchUserProfileByNicknameRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetUserByNicknameRequest) ProtoMessage() {}
+func (*FetchUserProfileByNicknameRequest) ProtoMessage() {}
 
-func (x *GetUserByNicknameRequest) ProtoReflect() protoreflect.Message {
+func (x *FetchUserProfileByNicknameRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_user_user_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -279,39 +279,39 @@ func (x *GetUserByNicknameRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetUserByNicknameRequest.ProtoReflect.Descriptor instead.
-func (*GetUserByNicknameRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use FetchUserProfileByNicknameRequest.ProtoReflect.Descriptor instead.
+func (*FetchUserProfileByNicknameRequest) Descriptor() ([]byte, []int) {
 	return file_user_user_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *GetUserByNicknameRequest) GetNickname() string {
+func (x *FetchUserProfileByNicknameRequest) GetNickname() string {
 	if x != nil {
 		return x.Nickname
 	}
 	return ""
 }
 
-type GetUserByNicknameResponse struct {
+type FetchUserProfileByNicknameResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	User          *UserProfile           `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetUserByNicknameResponse) Reset() {
-	*x = GetUserByNicknameResponse{}
+func (x *FetchUserProfileByNicknameResponse) Reset() {
+	*x = FetchUserProfileByNicknameResponse{}
 	mi := &file_user_user_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetUserByNicknameResponse) String() string {
+func (x *FetchUserProfileByNicknameResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetUserByNicknameResponse) ProtoMessage() {}
+func (*FetchUserProfileByNicknameResponse) ProtoMessage() {}
 
-func (x *GetUserByNicknameResponse) ProtoReflect() protoreflect.Message {
+func (x *FetchUserProfileByNicknameResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_user_user_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -323,12 +323,12 @@ func (x *GetUserByNicknameResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetUserByNicknameResponse.ProtoReflect.Descriptor instead.
-func (*GetUserByNicknameResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use FetchUserProfileByNicknameResponse.ProtoReflect.Descriptor instead.
+func (*FetchUserProfileByNicknameResponse) Descriptor() ([]byte, []int) {
 	return file_user_user_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *GetUserByNicknameResponse) GetUser() *User {
+func (x *FetchUserProfileByNicknameResponse) GetUser() *UserProfile {
 	if x != nil {
 		return x.User
 	}
@@ -339,9 +339,9 @@ var File_user_user_proto protoreflect.FileDescriptor
 
 const file_user_user_proto_rawDesc = "" +
 	"\n" +
-	"\x0fuser/user.proto\x12\x04user\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe3\x02\n" +
+	"\x0fuser/user.proto\x12\x04user\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/api/annotations.proto\"\xe3\x02\n" +
 	"\x04User\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x1b\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
 	"\tuser_name\x18\x02 \x01(\tR\buserName\x12\x14\n" +
 	"\x05email\x18\x03 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x04 \x01(\tR\bpassword\x12\x1a\n" +
@@ -357,7 +357,7 @@ const file_user_user_proto_rawDesc = "" +
 	"updated_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xce\x02\n" +
 	"\vUserProfile\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x1b\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
 	"\tuser_name\x18\x02 \x01(\tR\buserName\x12\x14\n" +
 	"\x05email\x18\x03 \x01(\tR\x05email\x12\x1a\n" +
 	"\bnickname\x18\x04 \x01(\tR\bnickname\x12\x10\n" +
@@ -369,14 +369,13 @@ const file_user_user_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"6\n" +
-	"\x18GetUserByNicknameRequest\x12\x1a\n" +
-	"\bnickname\x18\x01 \x01(\tR\bnickname\";\n" +
-	"\x19GetUserByNicknameResponse\x12\x1e\n" +
-	"\x04user\x18\x01 \x01(\v2\n" +
-	".user.UserR\x04user2c\n" +
-	"\vUserService\x12T\n" +
-	"\x11GetUserByNickname\x12\x1e.user.GetUserByNicknameRequest\x1a\x1f.user.GetUserByNicknameResponseBAZ?github.com/mamataliev-dev/social-platform/api/gen/userpb;userpbb\x06proto3"
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"?\n" +
+	"!FetchUserProfileByNicknameRequest\x12\x1a\n" +
+	"\bnickname\x18\x01 \x01(\tR\bnickname\"K\n" +
+	"\"FetchUserProfileByNicknameResponse\x12%\n" +
+	"\x04user\x18\x01 \x01(\v2\x11.user.UserProfileR\x04user2\x99\x01\n" +
+	"\vUserService\x12\x89\x01\n" +
+	"\x1aFetchUserProfileByNickname\x12'.user.FetchUserProfileByNicknameRequest\x1a(.user.FetchUserProfileByNicknameResponse\"\x18\x82\xd3\xe4\x93\x02\x12\x12\x10/user/{nickname}BAZ?github.com/mamataliev-dev/social-platform/api/gen/userpb;userpbb\x06proto3"
 
 var (
 	file_user_user_proto_rawDescOnce sync.Once
@@ -392,11 +391,11 @@ func file_user_user_proto_rawDescGZIP() []byte {
 
 var file_user_user_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_user_user_proto_goTypes = []any{
-	(*User)(nil),                      // 0: user.User
-	(*UserProfile)(nil),               // 1: user.UserProfile
-	(*GetUserByNicknameRequest)(nil),  // 2: user.GetUserByNicknameRequest
-	(*GetUserByNicknameResponse)(nil), // 3: user.GetUserByNicknameResponse
-	(*timestamppb.Timestamp)(nil),     // 4: google.protobuf.Timestamp
+	(*User)(nil),        // 0: user.User
+	(*UserProfile)(nil), // 1: user.UserProfile
+	(*FetchUserProfileByNicknameRequest)(nil),  // 2: user.FetchUserProfileByNicknameRequest
+	(*FetchUserProfileByNicknameResponse)(nil), // 3: user.FetchUserProfileByNicknameResponse
+	(*timestamppb.Timestamp)(nil),              // 4: google.protobuf.Timestamp
 }
 var file_user_user_proto_depIdxs = []int32{
 	4, // 0: user.User.last_login:type_name -> google.protobuf.Timestamp
@@ -405,9 +404,9 @@ var file_user_user_proto_depIdxs = []int32{
 	4, // 3: user.UserProfile.last_login:type_name -> google.protobuf.Timestamp
 	4, // 4: user.UserProfile.created_at:type_name -> google.protobuf.Timestamp
 	4, // 5: user.UserProfile.updated_at:type_name -> google.protobuf.Timestamp
-	0, // 6: user.GetUserByNicknameResponse.user:type_name -> user.User
-	2, // 7: user.UserService.GetUserByNickname:input_type -> user.GetUserByNicknameRequest
-	3, // 8: user.UserService.GetUserByNickname:output_type -> user.GetUserByNicknameResponse
+	1, // 6: user.FetchUserProfileByNicknameResponse.user:type_name -> user.UserProfile
+	2, // 7: user.UserService.FetchUserProfileByNickname:input_type -> user.FetchUserProfileByNicknameRequest
+	3, // 8: user.UserService.FetchUserProfileByNickname:output_type -> user.FetchUserProfileByNicknameResponse
 	8, // [8:9] is the sub-list for method output_type
 	7, // [7:8] is the sub-list for method input_type
 	7, // [7:7] is the sub-list for extension type_name

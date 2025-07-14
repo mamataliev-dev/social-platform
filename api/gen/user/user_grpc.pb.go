@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserService_GetUserByNickname_FullMethodName = "/user.UserService/GetUserByNickname"
+	UserService_FetchUserProfileByNickname_FullMethodName = "/user.UserService/FetchUserProfileByNickname"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -29,7 +29,7 @@ const (
 // Public read-only user APIs.
 type UserServiceClient interface {
 	// Fetches a user profile by nickname.
-	GetUserByNickname(ctx context.Context, in *GetUserByNicknameRequest, opts ...grpc.CallOption) (*GetUserByNicknameResponse, error)
+	FetchUserProfileByNickname(ctx context.Context, in *FetchUserProfileByNicknameRequest, opts ...grpc.CallOption) (*FetchUserProfileByNicknameResponse, error)
 }
 
 type userServiceClient struct {
@@ -40,10 +40,10 @@ func NewUserServiceClient(cc grpc.ClientConnInterface) UserServiceClient {
 	return &userServiceClient{cc}
 }
 
-func (c *userServiceClient) GetUserByNickname(ctx context.Context, in *GetUserByNicknameRequest, opts ...grpc.CallOption) (*GetUserByNicknameResponse, error) {
+func (c *userServiceClient) FetchUserProfileByNickname(ctx context.Context, in *FetchUserProfileByNicknameRequest, opts ...grpc.CallOption) (*FetchUserProfileByNicknameResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetUserByNicknameResponse)
-	err := c.cc.Invoke(ctx, UserService_GetUserByNickname_FullMethodName, in, out, cOpts...)
+	out := new(FetchUserProfileByNicknameResponse)
+	err := c.cc.Invoke(ctx, UserService_FetchUserProfileByNickname_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (c *userServiceClient) GetUserByNickname(ctx context.Context, in *GetUserBy
 // Public read-only user APIs.
 type UserServiceServer interface {
 	// Fetches a user profile by nickname.
-	GetUserByNickname(context.Context, *GetUserByNicknameRequest) (*GetUserByNicknameResponse, error)
+	FetchUserProfileByNickname(context.Context, *FetchUserProfileByNicknameRequest) (*FetchUserProfileByNicknameResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -68,8 +68,8 @@ type UserServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedUserServiceServer struct{}
 
-func (UnimplementedUserServiceServer) GetUserByNickname(context.Context, *GetUserByNicknameRequest) (*GetUserByNicknameResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetUserByNickname not implemented")
+func (UnimplementedUserServiceServer) FetchUserProfileByNickname(context.Context, *FetchUserProfileByNicknameRequest) (*FetchUserProfileByNicknameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchUserProfileByNickname not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -92,20 +92,20 @@ func RegisterUserServiceServer(s grpc.ServiceRegistrar, srv UserServiceServer) {
 	s.RegisterService(&UserService_ServiceDesc, srv)
 }
 
-func _UserService_GetUserByNickname_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetUserByNicknameRequest)
+func _UserService_FetchUserProfileByNickname_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FetchUserProfileByNicknameRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServiceServer).GetUserByNickname(ctx, in)
+		return srv.(UserServiceServer).FetchUserProfileByNickname(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserService_GetUserByNickname_FullMethodName,
+		FullMethod: UserService_FetchUserProfileByNickname_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).GetUserByNickname(ctx, req.(*GetUserByNicknameRequest))
+		return srv.(UserServiceServer).FetchUserProfileByNickname(ctx, req.(*FetchUserProfileByNicknameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -118,8 +118,8 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*UserServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetUserByNickname",
-			Handler:    _UserService_GetUserByNickname_Handler,
+			MethodName: "FetchUserProfileByNickname",
+			Handler:    _UserService_FetchUserProfileByNickname_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
