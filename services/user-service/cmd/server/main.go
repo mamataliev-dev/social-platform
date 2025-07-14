@@ -8,17 +8,20 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	userpb "github.com/mamataliev-dev/social-platform/api/gen/user"
 	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/config"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/logger"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/middleware"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/repository"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/security"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/service"
 )
 
@@ -47,8 +50,17 @@ func main() {
 	}
 
 	// Initialize repository + service
+	const DefaultTokenLifetime = time.Minute * 15
+	secretKey := []byte(os.Getenv("SECRET_KEY"))
+
 	authRepo := repository.NewAuthPostgres(db)
-	authService := service.NewAuthService(authRepo)
+	tokenRepo := repository.NewTokenPostgres(db)
+	jwtGen := security.NewJWTGenerator(secretKey, DefaultTokenLifetime)
+	authHasher := security.BcryptHasher{}
+	authService := service.NewAuthService(authRepo, tokenRepo, jwtGen, authHasher)
+
+	userRepo := repository.NewUserPostgres(db)
+	userService := service.NewUserService(userRepo)
 
 	// Start gRPC server
 	// TODO: Connect TLS
@@ -59,8 +71,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(middleware.TimeoutInterceptor))
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			middleware.TimeoutInterceptor,
+			middleware.UnaryAuthInterceptor,
+		),
+	)
+
 	userauthpb.RegisterAuthServiceServer(grpcServer, authService)
+	userpb.RegisterUserServiceServer(grpcServer, userService)
 
 	go func() {
 		slog.Info("Starting gRPC server", "address", grpcAddr)
@@ -76,9 +95,10 @@ func main() {
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 
 	_ = userauthpb.RegisterAuthServiceHandlerFromEndpoint(ctx, mux, grpcAddr, opts)
+	_ = userpb.RegisterUserServiceHandlerFromEndpoint(ctx, mux, grpcAddr, opts)
 
-	log.Println("HTTP REST on", ":100")
-	if err := http.ListenAndServe(":100", mux); err != nil {
+	log.Println("HTTP REST on", cfg.Server.Port)
+	if err := http.ListenAndServe(":"+cfg.Server.Port, mux); err != nil {
 		slog.Error("HTTP REST failed", "error", err)
 		os.Exit(1)
 	}

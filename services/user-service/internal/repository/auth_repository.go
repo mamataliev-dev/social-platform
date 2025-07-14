@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/utils"
@@ -46,38 +47,19 @@ func (r *AuthPostgres) Create(ctx context.Context, u model.UserDTO) (model.UserD
 				return model.UserDTO{}, fmt.Errorf("duplicate constraint %q violated", constraint)
 			}
 		}
-
-		return model.UserDTO{}, fmt.Errorf("failed to register u: %w", err)
+		return model.UserDTO{}, errs.ErrDBFailure
 	}
 	return u, nil
 }
 
-func (r *AuthPostgres) Login(ctx context.Context, in model.LoginInput) (model.UserDTO, error) {
+func (r *AuthPostgres) GetUserByEmail(ctx context.Context, input model.LoginInput) (model.UserDTO, error) {
 	query := `
-		SELECT id, user_name, email, password_hash, nickname, bio, avatar_url, last_login_at, created_at, updated_at  FROM users 
+		SELECT id, user_name, email, password_hash, nickname, bio, avatar_url, last_login_at, created_at, updated_at FROM users 
 		WHERE email = $1
 	`
 
-	row := r.DB.QueryRow(query, in.Email)
-	u, err := scanUser(row)
-	if err != nil {
-		if !utils.IsUserExists(err) {
-			return model.UserDTO{}, fmt.Errorf("%w", errs.ErrUserNotFound)
-		}
-
-		return model.UserDTO{}, fmt.Errorf("could not query u by credentials: %w", err)
-	}
-
-	return u, nil
-}
-
-type scanner interface {
-	Scan(dest ...interface{}) error
-}
-
-func scanUser(s scanner) (model.UserDTO, error) {
 	var u model.UserDTO
-	err := s.Scan(
+	err := r.DB.QueryRow(query, input.Email).Scan(
 		&u.ID,
 		&u.UserName,
 		&u.Email,
@@ -89,5 +71,43 @@ func scanUser(s scanner) (model.UserDTO, error) {
 		&u.CreatedAt,
 		&u.UpdatedAt,
 	)
-	return u, err
+
+	if err != nil {
+		if !utils.IsUserExists(err) {
+			return model.UserDTO{}, fmt.Errorf("%w", errs.ErrUserNotFound)
+		}
+		return model.UserDTO{}, errs.ErrDBFailure
+	}
+
+	return u, nil
+}
+
+func (r *AuthPostgres) GetUserByID(ctx context.Context, userId int64) (model.UserDTO, error) {
+	query := `
+		SELECT id, user_name, email, password_hash, nickname, bio, avatar_url, last_login_at, created_at, updated_at FROM users 
+		WHERE id = $1
+	`
+
+	var u model.UserDTO
+	err := r.DB.QueryRow(query, userId).Scan(
+		&u.ID,
+		&u.UserName,
+		&u.Email,
+		&u.PasswordHash,
+		&u.Nickname,
+		&u.Bio,
+		&u.AvatarURL,
+		&u.LastLogin,
+		&u.CreatedAt,
+		&u.UpdatedAt,
+	)
+
+	if err != nil {
+		if !utils.IsUserExists(err) {
+			return model.UserDTO{}, fmt.Errorf("%w", errs.ErrUserNotFound)
+		}
+		return model.UserDTO{}, errs.ErrDBFailure
+	}
+
+	return u, nil
 }

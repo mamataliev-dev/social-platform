@@ -3,7 +3,7 @@ package model
 import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/mamataliev-dev/social-platform/api/gen/user"
+	userpb "github.com/mamataliev-dev/social-platform/api/gen/user"
 	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth"
 )
 
@@ -18,28 +18,6 @@ func MapRegisterRequestToDomainUser(req *userauthpb.RegisterRequest, hashedPassw
 	}
 }
 
-func MapDomainUserToRegisterResponse(u UserDTO) *userauthpb.RegisterResponse {
-	var createdAt *timestamppb.Timestamp
-
-	if !u.CreatedAt.IsZero() {
-		createdAt = timestamppb.New(u.CreatedAt)
-	}
-
-	return &userauthpb.RegisterResponse{
-		User: &userpb.UserProfile{
-			Id:        u.ID,
-			UserName:  u.UserName,
-			Email:     u.Email,
-			Nickname:  u.Nickname,
-			Bio:       u.Bio,
-			AvatarUrl: u.AvatarURL,
-			CreatedAt: createdAt,
-			UpdatedAt: nil,
-			LastLogin: nil,
-		},
-	}
-}
-
 func MapLoginRequestToInput(req *userauthpb.LoginRequest) LoginInput {
 	return LoginInput{
 		Email:    req.GetEmail(),
@@ -47,20 +25,33 @@ func MapLoginRequestToInput(req *userauthpb.LoginRequest) LoginInput {
 	}
 }
 
-func MapDomainUserToLoginResponse(u UserDTO) *userauthpb.LoginResponse {
-	var createdAt, lastLogin, updatedAt *timestamppb.Timestamp
+func MapRefreshTokenToAuthResponse(accessToken, refreshToken string) *userauthpb.AuthTokenResponse {
+	return &userauthpb.AuthTokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
+}
+
+func MapFetchUserByNicknameRequestToInput(req *userpb.FetchUserProfileByNicknameRequest) GetUserByNicknameInput {
+	return GetUserByNicknameInput{
+		Nickname: req.GetNickname(),
+	}
+}
+
+func MapDomainUserToFetchUserByNicknameResponse(u UserDTO) *userpb.FetchUserProfileByNicknameResponse {
+	var createdAt, updatedAt, lastLogin *timestamppb.Timestamp
 
 	if !u.CreatedAt.IsZero() {
 		createdAt = timestamppb.New(u.CreatedAt)
 	}
-	if !u.LastLogin.IsZero() {
-		lastLogin = timestamppb.New(u.LastLogin)
-	}
 	if !u.UpdatedAt.IsZero() {
 		updatedAt = timestamppb.New(u.UpdatedAt)
 	}
+	if !u.LastLogin.IsZero() {
+		lastLogin = timestamppb.New(u.LastLogin)
+	}
 
-	return &userauthpb.LoginResponse{
+	return &userpb.FetchUserProfileByNicknameResponse{
 		User: &userpb.UserProfile{
 			Id:        u.ID,
 			UserName:  u.UserName,
@@ -69,8 +60,20 @@ func MapDomainUserToLoginResponse(u UserDTO) *userauthpb.LoginResponse {
 			Bio:       u.Bio,
 			AvatarUrl: u.AvatarURL,
 			CreatedAt: createdAt,
-			UpdatedAt: lastLogin,
-			LastLogin: updatedAt,
+			UpdatedAt: updatedAt,
+			LastLogin: lastLogin,
 		},
+	}
+}
+
+func MapRefreshTokenRequestToInput(req *userauthpb.RefreshTokenPayload) GetRefreshToken {
+	return GetRefreshToken{
+		RefreshToken: req.GetRefreshToken(),
+	}
+}
+
+func MapToLogoutResponse(msg string) *userauthpb.LogoutResponse {
+	return &userauthpb.LogoutResponse{
+		Message: msg,
 	}
 }
