@@ -19,13 +19,8 @@ var (
 	ErrEmailTaken    = errors.New("email already taken")
 	ErrNicknameTaken = errors.New("nickname already taken")
 
-	ErrInvalidPassword     = errors.New("invalid password")
-	ErrInvalidCredentials  = errors.New("invalid credentials")
-	ErrMissingRequiredData = errors.New("missing or empty required fields")
+	ErrInvalidPassword = errors.New("invalid password")
+	ErrHashingFailed   = errors.New("hashing failed")
 
-	ErrHashingFailed = errors.New("hashing failed")
-
-	ErrMissingOrInvalidRefreshToken = errors.New("missing or invalid refresh token")
-	ErrMissingOrInvalidAccessToken  = errors.New("missing or invalid access token")
-	ErrMissingJWTSecret             = errors.New("missing secret")
+	ErrInvalidArgument = errors.New("invalid argument")
 )

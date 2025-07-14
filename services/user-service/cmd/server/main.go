@@ -73,6 +73,7 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
+			middleware.ValidationInterceptor(),
 			middleware.TimeoutInterceptor,
 			middleware.UnaryAuthInterceptor,
 		),
