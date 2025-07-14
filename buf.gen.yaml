@@ -11,3 +11,7 @@ plugins:
   - name: grpc-gateway
     out: api/gen
     opt: paths=source_relative
+
+  - name: validate
+    out: api/gen
+    opt: paths=source_relative
