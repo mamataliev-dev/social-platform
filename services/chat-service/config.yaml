@@ -1,0 +1,39 @@
+env: "dev"
+
+server:
+  host: "0.0.0.0"
+  port: "100"
+  debug: true
+
+grpc:
+  host: "0.0.0.0"
+  port: 50051
+  max_concurrent_streams: 100
+  keepalive:
+    time: 60s
+    timeout: 20s
+  tls:
+    enabled: true
+    cert_file: "/path/to/cert.pem"
+    key_file:  "/path/to/key.pem"
+
+database:
+  driver: "postgres"
+  host: ${DB_HOST}
+  port: ${DB_PORT}
+  user: ${DB_USER}
+  password: ${DB_PASSWORD}
+  name: ${DB_NAME}
+  sslmode: "disable"
+
+jwt:
+  secret: ${JWT_SECRET_KEY}
+  expires_in_minutes: ${JWT_EXPIRES_IN_MINUTES}
+
+security:
+  allowed_origins:
+    - "http://localhost:3000"
+
+logging:
+  level: "debug"
+  format: "json"
