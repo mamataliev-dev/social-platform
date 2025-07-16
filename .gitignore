@@ -3,3 +3,6 @@
 
 # JetBrains IDEs
 .idea/
+
+# Ignore copied googleapis protos
+api/proto/third_party/googleapis/
