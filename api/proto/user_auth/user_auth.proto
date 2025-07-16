@@ -7,36 +7,68 @@ option go_package = "github.com/mamataliev-dev/social-platform/api/gen/userauthp
 import "user/user.proto";
 import "validate/validate.proto";
 import "google/api/annotations.proto";
+import "third_party/protoc-gen-openapiv2/options/annotations.proto";
 
-// AuthService handles sign-up & login.  Internal use only.
+// AuthService handles user authentication such as registration, login, logout, and token refreshing.
+// This service is intended for internal use only.
 service AuthService {
-  // Registers a new user and returns their profile.
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Handles user registration, login, logout, and token refresh functionality."
+    external_docs: {
+      url: "https://docs.socialplatform.dev/auth"
+      description: "Full API documentation for the AuthService"
+    }
+  };
+
+  // Registers a new user and returns access + refresh tokens.
   rpc Register (RegisterRequest) returns (AuthTokenResponse) {
     option (google.api.http) = {
       post: "/auth/register"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "User Registration"
+      description: "Registers a new user with username, email, and password, and returns tokens for authentication."
+      tags: ["Authentication"]
+    };
   }
 
-  // Validates credentials and returns the user profile.
+  // Authenticates a user with credentials and returns tokens.
   rpc Login (LoginRequest) returns (AuthTokenResponse) {
     option (google.api.http) = {
       post: "/auth/login"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "User Login"
+      description: "Validates user credentials and returns a new access and refresh token."
+      tags: ["Authentication"]
+    };
   }
 
+  // Invalidates a refresh token (logout).
   rpc Logout(RefreshTokenPayload) returns (LogoutResponse) {
     option (google.api.http) = {
       post: "/auth/logout"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "User Logout"
+      description: "Logs the user out by invalidating the refresh token."
+      tags: ["Authentication"]
+    };
   }
 
+  // Issues new tokens from a refresh token.
   rpc RefreshToken(RefreshTokenPayload) returns (AuthTokenResponse) {
     option (google.api.http) = {
       post: "/auth/refresh"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Refresh Token"
+      description: "Refreshes an access token using a valid refresh token."
+      tags: ["Authentication"]
     };
   }
 }

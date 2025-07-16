@@ -4,72 +4,64 @@ package user;
 
 option go_package = "github.com/mamataliev-dev/social-platform/api/gen/userpb;userpb";
 
-import "google/protobuf/timestamp.proto";
 import "validate/validate.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "third_party/protoc-gen-openapiv2/options/annotations.proto";
 
 // Public read-only user APIs.
 service UserService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "The User Service provides public read-only access to user profiles by nickname."
+    external_docs: {
+      url: "https://docs.socialplatform.dev/user"
+      description: "Full API documentation for User Service"
+    }
+  };
+
   // Fetches a user profile by nickname.
   rpc FetchUserProfileByNickname (FetchUserProfileByNicknameRequest) returns (FetchUserProfileByNicknameResponse) {
     option (google.api.http) = {
       get: "/user/{nickname}"
     };
-  };
+
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get User Profile by Nickname"
+      description: "Retrieves a public user profile based on a unique nickname."
+      tags: ["User"]
+    };
+  }
 }
 
 message User {
-  int64 id = 1 [(validate.rules).int64.gt = 0];
-  string user_name = 2 [(validate.rules).string = {
-    min_len: 3,
-    max_len: 30,
-    pattern: "^[a-zA-Z0-9_]+$"
-  }];
-  string email = 3 [(validate.rules).string.email = true];
-  string password = 4 [(validate.rules).string = {min_len: 6}];
-  string nickname = 5 [(validate.rules).string = {
-    min_len: 3,
-    max_len: 30,
-    pattern: "^[a-zA-Z0-9_]+$"
-  }];
-  string bio = 6 [(validate.rules).string = {max_len: 160}];
-  string avatar_url = 7 [(validate.rules).string.uri = true];
-
+  int64 id = 1;
+  string user_name = 2;
+  string email = 3;
+  string password = 4;
+  string nickname = 5;
+  string bio = 6;
+  string avatar_url = 7;
   google.protobuf.Timestamp last_login = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
 }
 
 message UserProfile {
-  int64 id = 1 [(validate.rules).int64.gt = 0];
-  string user_name = 2 [(validate.rules).string = {
-    min_len: 3,
-    max_len: 30,
-    pattern: "^[a-zA-Z0-9_]+$"
-  }];
-  string email = 3 [(validate.rules).string.email = true];
-  string nickname = 4 [(validate.rules).string = {
-    min_len: 3,
-    max_len: 30,
-    pattern: "^[a-zA-Z0-9_]+$"
-  }];
-  string bio = 5 [(validate.rules).string = {max_len: 160}];
-  string avatar_url = 6 [(validate.rules).string.uri = true];
-
+  int64 id = 1;
+  string user_name = 2;
+  string email = 3;
+  string nickname = 4;
+  string bio = 5;
+  string avatar_url = 6;
   google.protobuf.Timestamp last_login = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp updated_at = 9;
 }
 
 message FetchUserProfileByNicknameRequest {
-  string nickname = 1 [(validate.rules).string = {
-    min_len: 3,
-    max_len: 30,
-    pattern: "^[a-zA-Z0-9_]+$"
-  }];
+  string nickname = 1;
 }
 
 message FetchUserProfileByNicknameResponse {
   UserProfile user = 1;
 }
-
