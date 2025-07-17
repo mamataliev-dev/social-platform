@@ -1,13 +1,11 @@
 package testdata
 
 import (
-	"time"
-
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
 )
 
-func ValidTokenPair() model.TokenPair {
-	return model.TokenPair{
+func ValidTokenPair() dto.TokenResponse {
+	return dto.TokenResponse{
 		AccessToken:  "access-token",
 		RefreshToken: "refresh-token",
 	}
@@ -15,14 +13,13 @@ func ValidTokenPair() model.TokenPair {
 
 var TestPasswordHash = "$2a$10$test.hash.mock"
 
-func ValidUserDTO() model.UserDTO {
-	now := time.Now()
-	return model.UserDTO{
-		ID:           1,
-		Email:        "test@example.com",
-		UserName:     "Test User",
-		Nickname:     "tester",
-		PasswordHash: TestPasswordHash,
-		CreatedAt:    now,
+func ValidUserProfileResponse() dto.UserProfileResponse {
+	return dto.UserProfileResponse{
+		ID:        1,
+		Username:  "Test User",
+		Nickname:  "tester",
+		Email:     "test@example.com",
+		Bio:       "This is a test user",
+		AvatarURL: "https://test.com",
 	}
 }

@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package user.v1;
+
+import "google/api/annotations.proto";
+import "google/api/resource.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+import "validate/validate.proto";
+import "third_party/protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "github.com/mamataliev-dev/social-platform/api/gen/v1/userpb";
+
+// ---------------------------------------------------------------------
+// Public, read‐only API for end‐users (fetch by nickname)
+// ---------------------------------------------------------------------
+service UserService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Public read-only access to user profiles."
+  };
+
+  // Retrieves a public user profile by nickname.
+  rpc FetchUserProfileByNickname(FetchUserProfileByNicknameRequest) returns (UserProfile) {
+    option (google.api.http) = {
+      get: "/v1/users/{nickname}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary:     "Get User Profile by Nickname"
+      description: "Look up a public profile via its unique nickname."
+      tags:        ["User"]
+    };
+  }
+}
+
+// ---------------------------------------------------------------------
+// Internal API for service-to-service calls (fetch by ID)
+// ---------------------------------------------------------------------
+service InternalUserService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Internal-only user profile lookups by ID."
+  };
+
+  // Fetches a user profile by its numeric ID. Not exposed to external clients.
+  rpc FetchUserProfileByID(FetchUserProfileByIDRequest) returns (UserProfile) {
+    option (google.api.http) = {
+      get: "/v1/internal/users/{user_id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary:     "Fetch User Profile by ID (Internal)"
+      description: "Service-to-service lookup by user ID. DO NOT expose publicly."
+      tags:        ["User","Internal"]
+    };
+  }
+}
+
+// ---------------------------------------------------------------------
+// Resource definition for UserProfile
+// ---------------------------------------------------------------------
+message UserProfile {
+  option (google.api.resource) = {
+    pattern: "v1/users/{user_id}"
+    pattern: "v1/users/{nickname}"
+  };
+
+  // The globally unique ID for this user.
+  int64 user_id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // The user’s chosen display name.
+  string username = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // The user’s email (publicly visible only if you choose).
+  string email = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // The unique nickname by which others look you up.
+  string nickname = 4 [(google.api.field_behavior) = REQUIRED];
+
+  // Public biography.
+  string bio = 5;
+
+  // URL to the avatar image.
+  string avatar_url = 6;
+
+  // Timestamps are always OUTPUT_ONLY on a read‐only API.
+  google.protobuf.Timestamp last_login = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp created_at  = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp updated_at  = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ---------------------------------------------------------------------
+// Request messages
+// ---------------------------------------------------------------------
+message FetchUserProfileByNicknameRequest {
+  // The unique nickname to look up.
+  string nickname = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (validate.rules).string = {
+      min_len: 3,
+      max_len: 30,
+      pattern: "^[A-Za-z0-9_]+$"
+    }
+  ];
+}
+
+message FetchUserProfileByIDRequest {
+  // The numeric ID of the user.
+  int64 user_id = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (validate.rules).int64 = {
+      gt: 0
+    }
+  ];
+}

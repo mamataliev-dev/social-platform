@@ -15,8 +15,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	userpb "github.com/mamataliev-dev/social-platform/api/gen/user"
-	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth"
+	userpb "github.com/mamataliev-dev/social-platform/api/gen/user/v1"
+	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth/v1"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/config"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/logger"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/middleware"

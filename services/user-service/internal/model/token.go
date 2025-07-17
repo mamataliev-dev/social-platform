@@ -5,22 +5,38 @@ import (
 	"time"
 )
 
+// Model used for internal data transfer
+
 type TokenPair struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string    // JWT or opaque access token
+	RefreshToken string    // opaque refresh token (UUID)
+	ExpiresAt    time.Time // when the access token expires
 }
 
-type GetRefreshToken struct {
-	RefreshToken string `json:"refresh_token"`
+type SaveRefreshTokenRequest struct {
+	UserID    int64
+	Token     string
+	ExpiresAt time.Time
 }
 
+type RefreshTokenRequest struct {
+	Token string
+}
+
+type CreateTokenPairRequest struct {
+	UserID   int64
+	Nickname string
+}
+
+// TokenRepository defines how we store and retrieve refresh tokens.
 type TokenRepository interface {
-	SaveRefreshToken(ctx context.Context, userID int64, token string, expiresAt time.Time) error
-	GetRefreshToken(ctx context.Context, token GetRefreshToken) (userID string, err error)
-	DeleteRefreshToken(ctx context.Context, token GetRefreshToken) error
+	SaveRefreshToken(ctx context.Context, input SaveRefreshTokenRequest) error
+	GetRefreshToken(ctx context.Context, input RefreshTokenRequest) (userID int64, err error)
+	DeleteRefreshToken(ctx context.Context, input RefreshTokenRequest) error
 }
 
+// JWTGenerator handles creation of token pairs.
 type JWTGeneratorInterface interface {
-	CreateTokenPair(userID int64, nickname string) (TokenPair, error)
+	CreateTokenPair(input CreateTokenPairRequest) (TokenPair, error)
 	GenerateRefreshToken() (string, error)
 }

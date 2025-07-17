@@ -3,11 +3,14 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
+	"github.com/lib/pq"
+
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/utils"
 )
 
 type AuthPostgres struct {
@@ -18,7 +21,8 @@ func NewAuthPostgres(db *sql.DB) *AuthPostgres {
 	return &AuthPostgres{DB: db}
 }
 
-func (r *AuthPostgres) Create(ctx context.Context, u model.UserDTO) (model.UserDTO, error) {
+// CreateUser inserts a new user and handles unique constraint errors.
+func (r *AuthPostgres) CreateUser(ctx context.Context, u model.User) (model.User, error) {
 	const query = `
 		INSERT INTO users
 		(user_name, email, password_hash, nickname, bio, avatar_url)
@@ -26,9 +30,8 @@ func (r *AuthPostgres) Create(ctx context.Context, u model.UserDTO) (model.UserD
 		RETURNING id, created_at
     `
 
-	err := r.DB.QueryRow(
-		query,
-		u.UserName,
+	err := r.DB.QueryRowContext(ctx, query,
+		u.Username,
 		u.Email,
 		u.PasswordHash,
 		u.Nickname,
@@ -37,31 +40,37 @@ func (r *AuthPostgres) Create(ctx context.Context, u model.UserDTO) (model.UserD
 	).Scan(&u.ID, &u.CreatedAt)
 
 	if err != nil {
-		if ok, constraint := utils.IsUniqueViolation(err); ok {
-			switch constraint {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			switch pqErr.Constraint {
 			case "users_email_key":
-				return model.UserDTO{}, fmt.Errorf("%w", errs.ErrEmailTaken)
+				return model.User{}, fmt.Errorf("%w", errs.ErrEmailTaken)
 			case "users_nickname_key":
-				return model.UserDTO{}, fmt.Errorf("%w", errs.ErrNicknameTaken)
+				return model.User{}, fmt.Errorf("%w", errs.ErrNicknameTaken)
 			default:
-				return model.UserDTO{}, fmt.Errorf("duplicate constraint %q violated", constraint)
+				return model.User{}, fmt.Errorf("duplicate constraint %q violated", pqErr.Constraint)
 			}
 		}
-		return model.UserDTO{}, errs.ErrDBFailure
+
+		return model.User{}, errs.ErrDBFailure
 	}
+
 	return u, nil
 }
 
-func (r *AuthPostgres) GetUserByEmail(ctx context.Context, input model.LoginInput) (model.UserDTO, error) {
+// FetchUserByEmail retrieves a user by their email address.
+// INTERNAL USE ONLY: called by AuthService.Login to load a user’s stored password hash.
+func (r *AuthPostgres) FetchUserByEmail(ctx context.Context, input dto.FetchUserByEmailInput) (model.User, error) {
 	query := `
-		SELECT id, user_name, email, password_hash, nickname, bio, avatar_url, last_login_at, created_at, updated_at FROM users 
+		SELECT id, user_name, email, password_hash, nickname, bio, avatar_url, last_login_at, created_at, updated_at 
+		FROM users 
 		WHERE email = $1
 	`
 
-	var u model.UserDTO
-	err := r.DB.QueryRow(query, input.Email).Scan(
+	var u model.User
+	err := r.DB.QueryRowContext(ctx, query, input.Email).Scan(
 		&u.ID,
-		&u.UserName,
+		&u.Username,
 		&u.Email,
 		&u.PasswordHash,
 		&u.Nickname,
@@ -73,40 +82,10 @@ func (r *AuthPostgres) GetUserByEmail(ctx context.Context, input model.LoginInpu
 	)
 
 	if err != nil {
-		if !utils.IsUserExists(err) {
-			return model.UserDTO{}, fmt.Errorf("%w", errs.ErrUserNotFound)
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.User{}, fmt.Errorf("%w", errs.ErrUserNotFound)
 		}
-		return model.UserDTO{}, errs.ErrDBFailure
-	}
-
-	return u, nil
-}
-
-func (r *AuthPostgres) GetUserByID(ctx context.Context, userId int64) (model.UserDTO, error) {
-	query := `
-		SELECT id, user_name, email, password_hash, nickname, bio, avatar_url, last_login_at, created_at, updated_at FROM users 
-		WHERE id = $1
-	`
-
-	var u model.UserDTO
-	err := r.DB.QueryRow(query, userId).Scan(
-		&u.ID,
-		&u.UserName,
-		&u.Email,
-		&u.PasswordHash,
-		&u.Nickname,
-		&u.Bio,
-		&u.AvatarURL,
-		&u.LastLogin,
-		&u.CreatedAt,
-		&u.UpdatedAt,
-	)
-
-	if err != nil {
-		if !utils.IsUserExists(err) {
-			return model.UserDTO{}, fmt.Errorf("%w", errs.ErrUserNotFound)
-		}
-		return model.UserDTO{}, errs.ErrDBFailure
+		return model.User{}, errs.ErrDBFailure
 	}
 
 	return u, nil

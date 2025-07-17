@@ -3,14 +3,13 @@ package service
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"strconv"
-	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strconv"
+	"time"
 
-	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth"
+	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth/v1"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/security"
@@ -25,12 +24,12 @@ type AuthService struct {
 }
 
 func NewAuthService(
-	repo model.AuthRepository,
+	authRepo model.AuthRepository,
 	tokenRepo model.TokenRepository,
 	jwtGen model.JWTGeneratorInterface,
 	hasher security.Hasher) *AuthService {
 	return &AuthService{
-		authRepo:  repo,
+		authRepo:  authRepo,
 		tokenRepo: tokenRepo,
 		jwtGen:    jwtGen,
 		hasher:    hasher,
@@ -75,14 +74,9 @@ func (s *AuthService) Register(ctx context.Context, req *userauthpb.RegisterRequ
 }
 
 func (s *AuthService) Login(ctx context.Context, req *userauthpb.LoginRequest) (*userauthpb.AuthTokenResponse, error) {
-	// Include this code when protoc-gen-third_party is installed
-	//if err := validation.ValidateNotEmpty(req.Email, req.Password); err != nil {
-	//	return nil, status.Error(codes.InvalidArgument, err.Error())
-	//}
-
 	mUser := model.MapLoginRequestToInput(req)
 
-	user, err := s.authRepo.GetUserByEmail(ctx, mUser)
+	user, err := s.authRepo.FetchUserByEmail(ctx, mUser.Email)
 	if err != nil {
 		slog.Error("failed to login", "err", err)
 		if errors.Is(err, errs.ErrUserNotFound) {

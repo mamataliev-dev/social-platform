@@ -33,7 +33,7 @@ func TestLogin_Success(t *testing.T) {
 	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher)
 
 	req := validLoginRequest()
-	user := testdata.ValidUserDTO()
+	user := testdata.ValidUserProfileResponse()
 	tokenResp := testdata.ValidTokenPair()
 
 	expectedRefreshToken := tokenResp.RefreshToken
@@ -145,7 +145,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	authService := service.NewAuthService(authRepo, tokenRepo, jwtGen, hasher)
 
 	req := validLoginRequest()
-	user := testdata.ValidUserDTO()
+	user := testdata.ValidUserProfileResponse()
 
 	authRepo.On("GetUserByEmail", mock.Anything, mock.MatchedBy(func(input model.LoginInput) bool {
 		return input.Email == req.Email && input.Password == req.Password
@@ -192,7 +192,7 @@ func TestLogin_JWTGenerationFail(t *testing.T) {
 	authService := service.NewAuthService(authRepo, tokenRepo, jwtGen, hasher)
 
 	req := validLoginRequest()
-	user := testdata.ValidUserDTO()
+	user := testdata.ValidUserProfileResponse()
 
 	authRepo.On("GetUserByEmail", mock.Anything, mock.MatchedBy(func(input model.LoginInput) bool {
 		return input.Email == req.Email && input.Password == req.Password
