@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: user_auth/user_auth.proto
+// source: user_auth/v1/user_auth.proto
 
 package userauthpb
 
@@ -19,23 +19,28 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Register_FullMethodName     = "/user_auth.AuthService/Register"
-	AuthService_Login_FullMethodName        = "/user_auth.AuthService/Login"
-	AuthService_Logout_FullMethodName       = "/user_auth.AuthService/Logout"
-	AuthService_RefreshToken_FullMethodName = "/user_auth.AuthService/RefreshToken"
+	AuthService_Register_FullMethodName     = "/user.auth.v1.AuthService/Register"
+	AuthService_Login_FullMethodName        = "/user.auth.v1.AuthService/Login"
+	AuthService_Logout_FullMethodName       = "/user.auth.v1.AuthService/Logout"
+	AuthService_RefreshToken_FullMethodName = "/user.auth.v1.AuthService/RefreshToken"
 )
 
 // AuthServiceClient is the client API for AuthService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// AuthService handles sign-up & login.  Internal use only.
+// ---------------------------------------------------------------------
+// AuthService handles user authentication: registration, login, logout, and token refreshing.
+// This service is intended for internal service-to-service use only.
+// ---------------------------------------------------------------------
 type AuthServiceClient interface {
-	// Registers a new user and returns their profile.
+	// Registers a new user and returns access + refresh tokens.
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*AuthTokenResponse, error)
-	// Validates credentials and returns the user profile.
+	// Authenticates a user and returns tokens.
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*AuthTokenResponse, error)
+	// Invalidates a refresh token (logout).
 	Logout(ctx context.Context, in *RefreshTokenPayload, opts ...grpc.CallOption) (*LogoutResponse, error)
+	// Issues new tokens from a refresh token.
 	RefreshToken(ctx context.Context, in *RefreshTokenPayload, opts ...grpc.CallOption) (*AuthTokenResponse, error)
 }
 
@@ -91,13 +96,18 @@ func (c *authServiceClient) RefreshToken(ctx context.Context, in *RefreshTokenPa
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
 //
-// AuthService handles sign-up & login.  Internal use only.
+// ---------------------------------------------------------------------
+// AuthService handles user authentication: registration, login, logout, and token refreshing.
+// This service is intended for internal service-to-service use only.
+// ---------------------------------------------------------------------
 type AuthServiceServer interface {
-	// Registers a new user and returns their profile.
+	// Registers a new user and returns access + refresh tokens.
 	Register(context.Context, *RegisterRequest) (*AuthTokenResponse, error)
-	// Validates credentials and returns the user profile.
+	// Authenticates a user and returns tokens.
 	Login(context.Context, *LoginRequest) (*AuthTokenResponse, error)
+	// Invalidates a refresh token (logout).
 	Logout(context.Context, *RefreshTokenPayload) (*LogoutResponse, error)
+	// Issues new tokens from a refresh token.
 	RefreshToken(context.Context, *RefreshTokenPayload) (*AuthTokenResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
@@ -218,7 +228,7 @@ func _AuthService_RefreshToken_Handler(srv interface{}, ctx context.Context, dec
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AuthService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "user_auth.AuthService",
+	ServiceName: "user.auth.v1.AuthService",
 	HandlerType: (*AuthServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -239,5 +249,5 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "user_auth/user_auth.proto",
+	Metadata: "user_auth/v1/user_auth.proto",
 }

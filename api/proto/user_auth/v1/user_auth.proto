@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package user.auth.v1;
+
+option go_package = "github.com/mamataliev-dev/social-platform/api/gen/v1/userauthpb";
+
+import "user/v1/user.proto";
+import "validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "third_party/protoc-gen-openapiv2/options/annotations.proto";
+
+// ---------------------------------------------------------------------
+// AuthService handles user authentication: registration, login, logout, and token refreshing.
+// This service is intended for internal service-to-service use only.
+// ---------------------------------------------------------------------
+service AuthService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Handles user registration, login, logout, and token refresh functionality."
+  };
+
+  // Registers a new user and returns access + refresh tokens.
+  rpc Register(RegisterRequest) returns (AuthTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/register"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "User Registration"
+      description: "Registers a new user with username, email, and password, returning new tokens."
+      tags: ["Auth"]
+    };
+  }
+
+  // Authenticates a user and returns tokens.
+  rpc Login(LoginRequest) returns (AuthTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "User Login"
+      description: "Validates credentials (via internal fetch-by-email lookup) and returns new access + refresh tokens. This RPC is the only public entry point for authentication."
+      tags: ["Auth"]
+    };
+  }
+
+  // Invalidates a refresh token (logout).
+  rpc Logout(RefreshTokenPayload) returns (LogoutResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/logout"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "User Logout"
+      description: "Invalidates the provided refresh token, logging the user out."
+      tags: ["Auth"]
+    };
+  }
+
+  // Issues new tokens from a refresh token.
+  rpc RefreshToken(RefreshTokenPayload) returns (AuthTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Refresh Token"
+      description: "Refreshes access token using a valid refresh token."
+      tags: ["Auth"]
+    };
+  }
+}
+
+// ---------------------------------------------------------------------
+// Request and response message definitions with validation and field behaviors
+// ---------------------------------------------------------------------
+
+message RegisterRequest {
+  // The user's chosen username (3–30 alphanumeric or underscore characters).
+  string username = 1 [(google.api.field_behavior) = REQUIRED,
+    (validate.rules).string = {min_len: 3, max_len: 30, pattern: "^[A-Za-z0-9_]+$"}];
+
+  // The user's email address.
+  string email = 2 [(google.api.field_behavior) = REQUIRED,
+    (validate.rules).string = {email: true}];
+
+  // The user's password (plain text), which must be at least 6 characters.
+  string password = 3 [(google.api.field_behavior) = REQUIRED,
+    (validate.rules).string = {min_len: 6}];
+
+  // The unique nickname for public profile lookup (3–30 alphanumeric or underscore).
+  string nickname = 4 [(google.api.field_behavior) = REQUIRED,
+    (validate.rules).string = {min_len: 3, max_len: 30, pattern: "^[A-Za-z0-9_]+$"}];
+
+  // Public biography text (max 160 characters).
+  string bio = 5 [(validate.rules).string = {max_len: 160}];
+
+  // URL to the user's avatar image.
+  string avatar_url = 6 [(validate.rules).string = {uri: true}];
+}
+
+message LoginRequest {
+  // The user's email address.
+  string email = 1 [(google.api.field_behavior) = REQUIRED,
+    (validate.rules).string = {email: true}];
+
+  // The user's password (plain text), min length 6.
+  string password = 2 [(google.api.field_behavior) = REQUIRED,
+    (validate.rules).string = {min_len: 6}];
+}
+
+message RefreshTokenPayload {
+  // A valid UUID refresh token used to obtain new access tokens.
+  string refresh_token = 1 [(google.api.field_behavior) = REQUIRED,
+    (validate.rules).string = {uuid: true}];
+}
+
+message AuthTokenResponse {
+  // A newly issued access token (JWT), min length 10.
+  string access_token = 1 [(google.api.field_behavior) = OUTPUT_ONLY,
+    (validate.rules).string = {min_len: 10}];
+
+  // A newly issued refresh token (UUID format).
+  string refresh_token = 2 [(google.api.field_behavior) = OUTPUT_ONLY,
+    (validate.rules).string = {uuid: true}];
+}
+
+message LogoutResponse {
+  // Confirmation message on successful logout.
+  string message = 1 [(google.api.field_behavior) = OUTPUT_ONLY,
+    (validate.rules).string = {min_len: 1}];
+}

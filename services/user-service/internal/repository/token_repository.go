@@ -4,10 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
-	"time"
 
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 )
 
 type TokenPostgres struct {
@@ -18,14 +17,14 @@ func NewTokenPostgres(db *sql.DB) *TokenPostgres {
 	return &TokenPostgres{DB: db}
 }
 
-func (r *TokenPostgres) SaveRefreshToken(ctx context.Context, userID int64, token string, expiresAt time.Time) error {
+func (r *TokenPostgres) SaveRefreshToken(ctx context.Context, input model.SaveRefreshTokenRequest) error {
 	query := `
         INSERT INTO refresh_tokens (token, user_id, expires_at)
         VALUES ($1, $2, $3)
         ON CONFLICT (token) DO NOTHING
     `
 
-	_, err := r.DB.ExecContext(ctx, query, token, userID, expiresAt)
+	_, err := r.DB.ExecContext(ctx, query, input.Token, input.UserID, input.ExpiresAt)
 	if err != nil {
 		return errs.ErrDBFailure
 	}
@@ -33,14 +32,14 @@ func (r *TokenPostgres) SaveRefreshToken(ctx context.Context, userID int64, toke
 	return nil
 }
 
-func (r *TokenPostgres) GetRefreshToken(ctx context.Context, token model.GetRefreshToken) (string, error) {
+func (r *TokenPostgres) GetRefreshToken(ctx context.Context, input model.RefreshTokenRequest) (string, error) {
 	query := `
         SELECT user_id FROM refresh_tokens
         WHERE token = $1 AND expires_at > NOW()
     `
 
 	var userID string
-	err := r.DB.QueryRowContext(ctx, query, token.RefreshToken).Scan(&userID)
+	err := r.DB.QueryRowContext(ctx, query, input.Token).Scan(&userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", errs.ErrTokenNotFound
@@ -50,10 +49,10 @@ func (r *TokenPostgres) GetRefreshToken(ctx context.Context, token model.GetRefr
 	return userID, nil
 }
 
-func (r *TokenPostgres) DeleteRefreshToken(ctx context.Context, token model.GetRefreshToken) error {
+func (r *TokenPostgres) DeleteRefreshToken(ctx context.Context, input model.RefreshTokenRequest) error {
 	query := `DELETE FROM refresh_tokens WHERE token = $1`
 
-	result, err := r.DB.ExecContext(ctx, query, token.RefreshToken)
+	result, err := r.DB.ExecContext(ctx, query, input.Token)
 	if err != nil {
 		return errs.ErrDBFailure
 	}

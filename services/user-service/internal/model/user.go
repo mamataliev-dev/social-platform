@@ -3,36 +3,42 @@ package model
 import (
 	"context"
 	"time"
+
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
 )
 
-type UserDTO struct {
-	ID           int64     `json:"id"`
-	Nickname     string    `json:"nickname"`
-	UserName     string    `json:"user_name"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"password_hash"`
-	Bio          string    `json:"bio"`
-	AvatarURL    string    `json:"avatar_url"`
-	LastLogin    time.Time `json:"last_login"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+// Model used for internal data transfer
+
+// User represents a domain user entity.
+// Fields with pointer types are optional (maybe nil).
+type User struct {
+	ID           int64     // Unique identifier
+	Username     string    // Chosen display name
+	Email        string    // User's email address
+	PasswordHash string    // Hashed password (never exposed)
+	Nickname     string    // Unique nickname for public profile lookup
+	Bio          string    // Public biography
+	AvatarURL    string    // Avatar image URL
+	LastLogin    time.Time // Timestamp of last login, if any
+	CreatedAt    time.Time // Account creation timestamp
+	UpdatedAt    time.Time // Timestamp of last profile update
 }
 
-type LoginInput struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type GetUserByNicknameInput struct {
-	Nickname string `json:"nickname"`
-}
-
+// AuthRepository defines methods for user authentication persistence Create.
 type AuthRepository interface {
-	Create(ctx context.Context, user UserDTO) (UserDTO, error)
-	GetUserByEmail(ctx context.Context, input LoginInput) (UserDTO, error)
-	GetUserByID(ctx context.Context, userID int64) (UserDTO, error)
+	// CreateUser persists a new user and returns the created entity with ID and timestamps populated.
+	CreateUser(ctx context.Context, user *User) (*User, error)
+
+	// FetchUserByEmail retrieves a user by email; returns ErrUserNotFound if no record exists.
+	// INTERNAL: used by AuthService.Login for password validation.
+	FetchUserByEmail(ctx context.Context, input dto.FetchUserByEmailInput) (User, error)
 }
 
+// UserRepository defines read-only retrieval by ID, Nickname or Email.
 type UserRepository interface {
-	GetUserByNickname(ctx context.Context, input GetUserByNicknameInput) (UserDTO, error)
+	// FetchUserByNickname looks up a public user profile by nickname.
+	FetchUserByNickname(ctx context.Context, input dto.FetchUserByNicknameInput) (dto.UserProfileResponse, error)
+
+	// FetchUserByID retrieves a user by their numeric ID (internal uses only).
+	FetchUserByID(ctx context.Context, input dto.FetchUserByIDInput) (dto.UserProfileResponse, error)
 }

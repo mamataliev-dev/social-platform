@@ -10,7 +10,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth"
+	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth/v1"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/service"
@@ -23,7 +24,7 @@ func validRegisterRequest() *userauthpb.RegisterRequest {
 		Email:     "test@example.com",
 		Password:  "secure-password",
 		Nickname:  "tester",
-		UserName:  "Test User",
+		Username:  "Test User",
 		AvatarUrl: "https://test-avatar-url.com",
 		Bio:       "test bio",
 	}
@@ -34,10 +35,20 @@ func TestRegister_Success(t *testing.T) {
 	jwtMock := new(mocks.JWTGeneratorMock)
 	tokenRepo := new(mocks.TokenRepoMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher)
+	mapperMock := new(mocks.MockMapper)
+	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher, mapperMock)
 
 	req := validRegisterRequest()
-	user := testdata.ValidUserDTO()
+	user := testdata.ValidUserProfileResponse()
+
+	mapperMock.On("ToUserDTO", req).Return(dto.RegisterRequest{
+		Username:  req.GetUsername(),
+		Email:     req.GetEmail(),
+		Password:  req.GetPassword(),
+		Nickname:  req.GetNickname(),
+		Bio:       req.GetBio(),
+		AvatarURL: req.GetAvatarUrl(),
+	})
 
 	tokenResp := testdata.ValidTokenPair()
 	expectedRefreshToken := tokenResp.RefreshToken
@@ -45,20 +56,31 @@ func TestRegister_Success(t *testing.T) {
 
 	hasher.On("HashPassword", req.Password).Return(testdata.TestPasswordHash, nil)
 
-	authRepo.On("Create", mock.Anything, mock.MatchedBy(func(input model.UserDTO) bool {
+	authRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(input model.User) bool {
 		return input.Email == req.Email &&
 			input.Nickname == req.Nickname &&
-			input.UserName == req.UserName &&
+			input.Username == req.Username &&
 			input.AvatarURL == req.AvatarUrl &&
 			input.Bio == req.Bio &&
 			input.PasswordHash == testdata.TestPasswordHash
 	})).Return(user, nil)
 
-	jwtMock.On("CreateTokenPair", user.ID, user.Nickname).Return(tokenResp, nil)
+	jwtMock.On("CreateTokenPair", mock.Anything, mock.MatchedBy(func(input model.CreateTokenPairRequest) bool {
+		return input.UserID == user.ID &&
+			input.Nickname == user.Nickname
+	})).Return(tokenResp, nil)
 
-	tokenRepo.On("SaveRefreshToken", mock.Anything, user.ID, expectedRefreshToken, mock.MatchedBy(func(exp time.Time) bool {
-		return exp.Sub(expectedExpiresAt) < 2*time.Second
+	tokenRepo.On("SaveRefreshToken", mock.Anything, mock.MatchedBy(func(input model.SaveRefreshTokenRequest) bool {
+		return input.UserID == user.ID &&
+			input.Token == expectedRefreshToken &&
+			input.ExpiresAt.Sub(expectedExpiresAt) < 2*time.Second
 	})).Return(nil)
+
+	mapperMock.On("ToAuthTokenResponse", tokenResp.AccessToken, tokenResp.RefreshToken).Return(
+		&userauthpb.AuthTokenResponse{
+			AccessToken:  tokenResp.AccessToken,
+			RefreshToken: tokenResp.RefreshToken,
+		})
 
 	resp, err := authService.Register(context.Background(), req)
 
@@ -70,6 +92,7 @@ func TestRegister_Success(t *testing.T) {
 	tokenRepo.AssertExpectations(t)
 	hasher.AssertExpectations(t)
 	jwtMock.AssertExpectations(t)
+	mapperMock.AssertExpectations(t)
 }
 
 func TestRegister_InternalDBError(t *testing.T) {
@@ -77,20 +100,30 @@ func TestRegister_InternalDBError(t *testing.T) {
 	jwtMock := new(mocks.JWTGeneratorMock)
 	tokenRepo := new(mocks.TokenRepoMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher)
+	mapperMock := new(mocks.MockMapper)
+	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher, mapperMock)
 
 	req := validRegisterRequest()
 
+	mapperMock.On("ToUserDTO", req).Return(dto.RegisterRequest{
+		Username:  req.GetUsername(),
+		Email:     req.GetEmail(),
+		Password:  req.GetPassword(),
+		Nickname:  req.GetNickname(),
+		Bio:       req.GetBio(),
+		AvatarURL: req.GetAvatarUrl(),
+	})
+
 	hasher.On("HashPassword", req.Password).Return(testdata.TestPasswordHash, nil)
 
-	authRepo.On("Create", mock.Anything, mock.MatchedBy(func(input model.UserDTO) bool {
+	authRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(input model.User) bool {
 		return input.Email == req.Email &&
 			input.Nickname == req.Nickname &&
-			input.UserName == req.UserName &&
+			input.Username == req.Username &&
 			input.AvatarURL == req.AvatarUrl &&
 			input.Bio == req.Bio &&
 			input.PasswordHash == testdata.TestPasswordHash
-	})).Return(model.UserDTO{}, errs.ErrDBFailure)
+	})).Return(model.User{}, errs.ErrDBFailure)
 
 	_, err := authService.Register(context.Background(), req)
 
@@ -101,6 +134,7 @@ func TestRegister_InternalDBError(t *testing.T) {
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
+	mapperMock.AssertExpectations(t)
 }
 
 func TestRegister_InternalError(t *testing.T) {
@@ -108,20 +142,30 @@ func TestRegister_InternalError(t *testing.T) {
 	jwtMock := new(mocks.JWTGeneratorMock)
 	tokenRepo := new(mocks.TokenRepoMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher)
+	mapperMock := new(mocks.MockMapper)
+	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher, mapperMock)
 
 	req := validRegisterRequest()
 
+	mapperMock.On("ToUserDTO", req).Return(dto.RegisterRequest{
+		Username:  req.GetUsername(),
+		Email:     req.GetEmail(),
+		Password:  req.GetPassword(),
+		Nickname:  req.GetNickname(),
+		Bio:       req.GetBio(),
+		AvatarURL: req.GetAvatarUrl(),
+	})
+
 	hasher.On("HashPassword", req.Password).Return(testdata.TestPasswordHash, nil)
 
-	authRepo.On("Create", mock.Anything, mock.MatchedBy(func(input model.UserDTO) bool {
+	authRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(input model.User) bool {
 		return input.Email == req.Email &&
 			input.Nickname == req.Nickname &&
-			input.UserName == req.UserName &&
+			input.Username == req.Username &&
 			input.AvatarURL == req.AvatarUrl &&
 			input.Bio == req.Bio &&
 			input.PasswordHash == testdata.TestPasswordHash
-	})).Return(model.UserDTO{}, errs.ErrInternal)
+	})).Return(model.User{}, errs.ErrInternal)
 
 	_, err := authService.Register(context.Background(), req)
 
@@ -132,6 +176,7 @@ func TestRegister_InternalError(t *testing.T) {
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
+	mapperMock.AssertExpectations(t)
 }
 
 func TestRegister_NicknameTaken(t *testing.T) {
@@ -139,30 +184,41 @@ func TestRegister_NicknameTaken(t *testing.T) {
 	jwtMock := new(mocks.JWTGeneratorMock)
 	tokenRepo := new(mocks.TokenRepoMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher)
+	mapperMock := new(mocks.MockMapper)
+	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher, mapperMock)
 
 	req := validRegisterRequest()
 
+	mapperMock.On("ToUserDTO", req).Return(dto.RegisterRequest{
+		Username:  req.GetUsername(),
+		Email:     req.GetEmail(),
+		Password:  req.GetPassword(),
+		Nickname:  req.GetNickname(),
+		Bio:       req.GetBio(),
+		AvatarURL: req.GetAvatarUrl(),
+	})
+
 	hasher.On("HashPassword", req.Password).Return(testdata.TestPasswordHash, nil)
 
-	authRepo.On("Create", mock.Anything, mock.MatchedBy(func(input model.UserDTO) bool {
+	authRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(input model.User) bool {
 		return input.Email == req.Email &&
 			input.Nickname == req.Nickname &&
-			input.UserName == req.UserName &&
+			input.Username == req.Username &&
 			input.AvatarURL == req.AvatarUrl &&
 			input.Bio == req.Bio &&
 			input.PasswordHash == testdata.TestPasswordHash
-	})).Return(model.UserDTO{}, errs.ErrNicknameTaken)
+	})).Return(model.User{}, errs.ErrNicknameTaken)
 
 	_, err := authService.Register(context.Background(), req)
-	assert.Error(t, err)
 
+	assert.Error(t, err)
 	st, ok := status.FromError(err)
 	assert.True(t, ok)
 	assert.Equal(t, codes.AlreadyExists, st.Code())
 	assert.Equal(t, errs.ErrNicknameTaken.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
+	mapperMock.AssertExpectations(t)
 }
 
 func TestRegister_EmailTaken(t *testing.T) {
@@ -170,20 +226,30 @@ func TestRegister_EmailTaken(t *testing.T) {
 	jwtMock := new(mocks.JWTGeneratorMock)
 	tokenRepo := new(mocks.TokenRepoMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher)
+	mapperMock := new(mocks.MockMapper)
+	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher, mapperMock)
 
 	req := validRegisterRequest()
 
+	mapperMock.On("ToUserDTO", req).Return(dto.RegisterRequest{
+		Username:  req.GetUsername(),
+		Email:     req.GetEmail(),
+		Password:  req.GetPassword(),
+		Nickname:  req.GetNickname(),
+		Bio:       req.GetBio(),
+		AvatarURL: req.GetAvatarUrl(),
+	})
+
 	hasher.On("HashPassword", req.Password).Return(testdata.TestPasswordHash, nil)
 
-	authRepo.On("Create", mock.Anything, mock.MatchedBy(func(input model.UserDTO) bool {
+	authRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(input model.User) bool {
 		return input.Email == req.Email &&
 			input.Nickname == req.Nickname &&
-			input.UserName == req.UserName &&
+			input.Username == req.Username &&
 			input.AvatarURL == req.AvatarUrl &&
 			input.Bio == req.Bio &&
 			input.PasswordHash == testdata.TestPasswordHash
-	})).Return(model.UserDTO{}, errs.ErrEmailTaken)
+	})).Return(model.User{}, errs.ErrEmailTaken)
 
 	_, err := authService.Register(context.Background(), req)
 	assert.Error(t, err)
@@ -194,6 +260,7 @@ func TestRegister_EmailTaken(t *testing.T) {
 	assert.Equal(t, errs.ErrEmailTaken.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
+	mapperMock.AssertExpectations(t)
 }
 
 func TestRegister_HashPasswordFails(t *testing.T) {
@@ -201,9 +268,19 @@ func TestRegister_HashPasswordFails(t *testing.T) {
 	jwtMock := new(mocks.JWTGeneratorMock)
 	tokenRepo := new(mocks.TokenRepoMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher)
+	mapperMock := new(mocks.MockMapper)
+	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher, mapperMock)
 
 	req := validRegisterRequest()
+
+	mapperMock.On("ToUserDTO", req).Return(dto.RegisterRequest{
+		Username:  req.GetUsername(),
+		Email:     req.GetEmail(),
+		Password:  req.GetPassword(),
+		Nickname:  req.GetNickname(),
+		Bio:       req.GetBio(),
+		AvatarURL: req.GetAvatarUrl(),
+	})
 
 	hasher.On("HashPassword", req.Password).Return("", errs.ErrHashingFailed)
 
@@ -216,30 +293,44 @@ func TestRegister_HashPasswordFails(t *testing.T) {
 	assert.Equal(t, errs.ErrHashingFailed.Error(), st.Message())
 
 	hasher.AssertExpectations(t)
+	mapperMock.AssertExpectations(t)
 }
 
 func TestRegister_JWTGenerationFail(t *testing.T) {
 	authRepo := new(mocks.AuthRepoMock)
+	jwtMock := new(mocks.JWTGeneratorMock)
 	tokenRepo := new(mocks.TokenRepoMock)
-	jwtGen := new(mocks.JWTGeneratorMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtGen, hasher)
+	mapperMock := new(mocks.MockMapper)
+	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher, mapperMock)
 
 	req := validRegisterRequest()
-	user := testdata.ValidUserDTO()
+	user := testdata.ValidUserProfileResponse()
+
+	mapperMock.On("ToUserDTO", req).Return(dto.RegisterRequest{
+		Username:  req.GetUsername(),
+		Email:     req.GetEmail(),
+		Password:  req.GetPassword(),
+		Nickname:  req.GetNickname(),
+		Bio:       req.GetBio(),
+		AvatarURL: req.GetAvatarUrl(),
+	})
 
 	hasher.On("HashPassword", req.Password).Return(testdata.TestPasswordHash, nil)
 
-	authRepo.On("Create", mock.Anything, mock.MatchedBy(func(input model.UserDTO) bool {
+	authRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(input model.User) bool {
 		return input.Email == req.Email &&
 			input.Nickname == req.Nickname &&
-			input.UserName == req.UserName &&
+			input.Username == req.Username &&
 			input.AvatarURL == req.AvatarUrl &&
 			input.Bio == req.Bio &&
 			input.PasswordHash == testdata.TestPasswordHash
-	})).Return(user, nil)
+	})).Return(model.User{}, nil)
 
-	jwtGen.On("CreateTokenPair", user.ID, user.Nickname).Return(model.TokenPair{}, errs.ErrTokenSigningFailed)
+	jwtMock.On("CreateTokenPair", mock.Anything, mock.MatchedBy(func(input model.CreateTokenPairRequest) bool {
+		return input.UserID == user.ID &&
+			input.Nickname == user.Nickname
+	})).Return(model.TokenPair{}, errs.ErrTokenSigningFailed)
 
 	_, err := authService.Register(context.Background(), req)
 
@@ -250,5 +341,5 @@ func TestRegister_JWTGenerationFail(t *testing.T) {
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
-	jwtGen.AssertExpectations(t)
+	jwtMock.AssertExpectations(t)
 }
