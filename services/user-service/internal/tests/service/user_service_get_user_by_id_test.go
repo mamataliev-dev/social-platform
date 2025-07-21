@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	userpb "github.com/mamataliev-dev/social-platform/api/gen/user/v1"
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/transport"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/service"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/tests/mocks"
@@ -27,25 +27,25 @@ func validFetchUserByIDRequest() *userpb.FetchUserProfileByIDRequest {
 // TestFetchUserByID_Success verifies that a valid user ID returns the correct user profile.
 // It mocks both the mapper (for request/response transformation) and the repository.
 func TestFetchUserByID_Success(t *testing.T) {
-	repo := new(mocks.UserRepoMock)
-	mapperMock := new(mocks.MockMapper)
-	userService := service.NewUserService(repo, mapperMock)
+	userRepo := new(mocks.UserRepoMock)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewUserService(userRepo, mapper)
 
 	req := validFetchUserByIDRequest()
-	user := testdata.ValidUserProfileResponse()
+	user := testdata.UserProfileResponse()
 
-	// Expect conversion from protobuf request to internal DTO
-	mapperMock.On("ToFetchUserByIDInput", req).Return(dto.FetchUserByIDInput{
+	// Expect conversion from protobuf request to domain DTO
+	mapper.On("ToFetchUserByIDRequest", req).Return(transport.FetchUserByIDRequest{
 		UserId: req.GetUserId(),
 	})
 
 	// Expect repository to return a valid user profile
-	repo.On("FetchUserByID", mock.Anything, mock.MatchedBy(func(input dto.FetchUserByIDInput) bool {
+	userRepo.On("FetchUserByID", mock.Anything, mock.MatchedBy(func(input transport.FetchUserByIDRequest) bool {
 		return input.UserId == req.UserId
 	})).Return(user, nil)
 
-	// Expect conversion from internal user DTO to protobuf response
-	mapperMock.On("ToFetchUserProfileResponse", user).Return(&userpb.UserProfile{
+	// Expect conversion from domain user DTO to protobuf response
+	mapper.On("ToFetchUserProfileResponse", user).Return(&userpb.UserProfile{
 		UserId:    user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
@@ -55,7 +55,7 @@ func TestFetchUserByID_Success(t *testing.T) {
 	})
 
 	// Execute the service call
-	resp, err := userService.FetchUserProfileByID(context.Background(), req)
+	resp, err := svc.FetchUserProfileByID(context.Background(), req)
 
 	// Verify output
 	assert.NoError(t, err)
@@ -67,28 +67,28 @@ func TestFetchUserByID_Success(t *testing.T) {
 	assert.Equal(t, user.AvatarURL, resp.AvatarUrl)
 
 	// Ensure all mocks were called as expected
-	repo.AssertExpectations(t)
-	mapperMock.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
 // TestFetchUserByID_InternalDBErr ensures that unexpected low-level database failures
-// are translated into a gRPC internal error with a generic internal error message.
+// are translated into a gRPC domain error with a generic domain error message.
 func TestFetchUserByID_InternalDBErr(t *testing.T) {
-	repo := new(mocks.UserRepoMock)
-	mapperMock := new(mocks.MockMapper)
-	userService := service.NewUserService(repo, mapperMock)
+	UserRepo := new(mocks.UserRepoMock)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewUserService(UserRepo, mapper)
 
 	req := validFetchUserByIDRequest()
 
-	mapperMock.On("ToFetchUserByIDInput", req).Return(dto.FetchUserByIDInput{
+	mapper.On("ToFetchUserByIDRequest", req).Return(transport.FetchUserByIDRequest{
 		UserId: req.GetUserId(),
 	})
 
-	repo.On("FetchUserByID", mock.Anything, mock.MatchedBy(func(input dto.FetchUserByIDInput) bool {
+	UserRepo.On("FetchUserByID", mock.Anything, mock.MatchedBy(func(input transport.FetchUserByIDRequest) bool {
 		return input.UserId == req.UserId
-	})).Return(dto.UserProfileResponse{}, errs.ErrDBFailure)
+	})).Return(transport.UserProfileResponse{}, errs.ErrDBFailure)
 
-	_, err := userService.FetchUserProfileByID(context.Background(), req)
+	_, err := svc.FetchUserProfileByID(context.Background(), req)
 
 	assert.Error(t, err)
 	st, ok := status.FromError(err)
@@ -96,29 +96,29 @@ func TestFetchUserByID_InternalDBErr(t *testing.T) {
 	assert.Equal(t, codes.Internal, st.Code())
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
-	repo.AssertExpectations(t)
-	mapperMock.AssertExpectations(t)
+	UserRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
 // TestFetchUserByID_InternalErr tests the case where the repository returns
-// a generic internal service error (e.g., logic error or nil dereference).
+// a generic domain service error (e.g., logic error or nil dereference).
 // The service should return a gRPC Internal error code.
 func TestFetchUserByID_InternalErr(t *testing.T) {
-	repo := new(mocks.UserRepoMock)
-	mapperMock := new(mocks.MockMapper)
-	userService := service.NewUserService(repo, mapperMock)
+	userRepo := new(mocks.UserRepoMock)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewUserService(userRepo, mapper)
 
 	req := validFetchUserByIDRequest()
 
-	mapperMock.On("ToFetchUserByIDInput", req).Return(dto.FetchUserByIDInput{
+	mapper.On("ToFetchUserByIDRequest", req).Return(transport.FetchUserByIDRequest{
 		UserId: req.GetUserId(),
 	})
 
-	repo.On("FetchUserByID", mock.Anything, mock.MatchedBy(func(input dto.FetchUserByIDInput) bool {
+	userRepo.On("FetchUserByID", mock.Anything, mock.MatchedBy(func(input transport.FetchUserByIDRequest) bool {
 		return input.UserId == req.UserId
-	})).Return(dto.UserProfileResponse{}, errs.ErrInternal)
+	})).Return(transport.UserProfileResponse{}, errs.ErrInternal)
 
-	_, err := userService.FetchUserProfileByID(context.Background(), req)
+	_, err := svc.FetchUserProfileByID(context.Background(), req)
 
 	assert.Error(t, err)
 	st, ok := status.FromError(err)
@@ -126,28 +126,28 @@ func TestFetchUserByID_InternalErr(t *testing.T) {
 	assert.Equal(t, codes.Internal, st.Code())
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
-	repo.AssertExpectations(t)
-	mapperMock.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
 // TestFetchUserByID_NotFound ensures that when a user is not found in the DB,
 // the service returns a gRPC NotFound error code with the appropriate message.
 func TestFetchUserByID_NotFound(t *testing.T) {
-	repo := new(mocks.UserRepoMock)
-	mapperMock := new(mocks.MockMapper)
-	userService := service.NewUserService(repo, mapperMock)
+	userRepo := new(mocks.UserRepoMock)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewUserService(userRepo, mapper)
 
 	req := validFetchUserByIDRequest()
 
-	mapperMock.On("ToFetchUserByIDInput", req).Return(dto.FetchUserByIDInput{
+	mapper.On("ToFetchUserByIDRequest", req).Return(transport.FetchUserByIDRequest{
 		UserId: req.GetUserId(),
 	})
 
-	repo.On("FetchUserByID", mock.Anything, mock.MatchedBy(func(input dto.FetchUserByIDInput) bool {
+	userRepo.On("FetchUserByID", mock.Anything, mock.MatchedBy(func(input transport.FetchUserByIDRequest) bool {
 		return input.UserId == req.UserId
-	})).Return(dto.UserProfileResponse{}, errs.ErrUserNotFound)
+	})).Return(transport.UserProfileResponse{}, errs.ErrUserNotFound)
 
-	_, err := userService.FetchUserProfileByID(context.Background(), req)
+	_, err := svc.FetchUserProfileByID(context.Background(), req)
 
 	assert.Error(t, err)
 	st, ok := status.FromError(err)
@@ -155,6 +155,6 @@ func TestFetchUserByID_NotFound(t *testing.T) {
 	assert.Equal(t, codes.NotFound, st.Code())
 	assert.Equal(t, errs.ErrUserNotFound.Error(), st.Message())
 
-	repo.AssertExpectations(t)
-	mapperMock.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }

@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	userpb "github.com/mamataliev-dev/social-platform/api/gen/user/v1"
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/transport"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/service"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/tests/mocks"
@@ -27,25 +27,25 @@ func validFetchUserByNicknameRequest() *userpb.FetchUserProfileByNicknameRequest
 // TestGetUserByNickname_Success verifies that a valid nickname returns the correct user profile.
 // It mocks both the mapper (for input/output transformation) and the repository.
 func TestGetUserByNickname_Success(t *testing.T) {
-	repo := new(mocks.UserRepoMock)
-	mapperMock := new(mocks.MockMapper)
-	userService := service.NewUserService(repo, mapperMock)
+	userRepo := new(mocks.UserRepoMock)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewUserService(userRepo, mapper)
 
 	req := validFetchUserByNicknameRequest()
-	user := testdata.ValidUserProfileResponse()
+	user := testdata.UserProfileResponse()
 
-	// Expect conversion from protobuf request to internal DTO
-	mapperMock.On("ToFetchUserByNicknameInput", req).Return(dto.FetchUserByNicknameInput{
+	// Expect conversion from protobuf request to domain DTO
+	mapper.On("ToFetchUserByNicknameRequest", req).Return(transport.FetchUserByNicknameRequest{
 		Nickname: req.GetNickname(),
 	})
 
 	// Expect repository to return a valid user profile
-	repo.On("FetchUserByNickname", mock.Anything, mock.MatchedBy(func(input dto.FetchUserByNicknameInput) bool {
+	userRepo.On("FetchUserByNickname", mock.Anything, mock.MatchedBy(func(input transport.FetchUserByNicknameRequest) bool {
 		return input.Nickname == req.Nickname
 	})).Return(user, nil)
 
-	// Expect conversion from internal user DTO to protobuf response
-	mapperMock.On("ToFetchUserProfileResponse", user).Return(&userpb.UserProfile{
+	// Expect conversion from domain user DTO to protobuf response
+	mapper.On("ToFetchUserProfileResponse", user).Return(&userpb.UserProfile{
 		UserId:    user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
@@ -55,7 +55,7 @@ func TestGetUserByNickname_Success(t *testing.T) {
 	})
 
 	// Execute the service method
-	resp, err := userService.FetchUserProfileByNickname(context.Background(), req)
+	resp, err := svc.FetchUserProfileByNickname(context.Background(), req)
 
 	// Validate the returned profile
 	assert.NoError(t, err)
@@ -67,28 +67,28 @@ func TestGetUserByNickname_Success(t *testing.T) {
 	assert.Equal(t, user.AvatarURL, resp.AvatarUrl)
 
 	// Ensure all mocks were triggered as expected
-	repo.AssertExpectations(t)
-	mapperMock.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
 // TestGetUserByNickname_InternalDBErr ensures that low-level DB errors
-// are translated to gRPC internal errors with a generic internal message.
+// are translated to gRPC domain errors with a generic domain message.
 func TestGetUserByNickname_InternalDBErr(t *testing.T) {
-	repo := new(mocks.UserRepoMock)
-	mapperMock := new(mocks.MockMapper)
-	userService := service.NewUserService(repo, mapperMock)
+	userRepo := new(mocks.UserRepoMock)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewUserService(userRepo, mapper)
 
 	req := validFetchUserByNicknameRequest()
 
-	mapperMock.On("ToFetchUserByNicknameInput", req).Return(dto.FetchUserByNicknameInput{
+	mapper.On("ToFetchUserByNicknameRequest", req).Return(transport.FetchUserByNicknameRequest{
 		Nickname: req.GetNickname(),
 	})
 
-	repo.On("FetchUserByNickname", mock.Anything, mock.MatchedBy(func(input dto.FetchUserByNicknameInput) bool {
+	userRepo.On("FetchUserByNickname", mock.Anything, mock.MatchedBy(func(input transport.FetchUserByNicknameRequest) bool {
 		return input.Nickname == req.Nickname
-	})).Return(dto.UserProfileResponse{}, errs.ErrDBFailure)
+	})).Return(transport.UserProfileResponse{}, errs.ErrDBFailure)
 
-	_, err := userService.FetchUserProfileByNickname(context.Background(), req)
+	_, err := svc.FetchUserProfileByNickname(context.Background(), req)
 
 	assert.Error(t, err)
 	st, ok := status.FromError(err)
@@ -96,28 +96,28 @@ func TestGetUserByNickname_InternalDBErr(t *testing.T) {
 	assert.Equal(t, codes.Internal, st.Code())
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
-	repo.AssertExpectations(t)
-	mapperMock.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
-// TestGetUserByNickname_InternalErr tests handling of generic internal service errors.
+// TestGetUserByNickname_InternalErr tests handling of generic domain service errors.
 // These should result in a gRPC Internal code and a general error message.
 func TestGetUserByNickname_InternalErr(t *testing.T) {
-	repo := new(mocks.UserRepoMock)
-	mapperMock := new(mocks.MockMapper)
-	userService := service.NewUserService(repo, mapperMock)
+	userRepo := new(mocks.UserRepoMock)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewUserService(userRepo, mapper)
 
 	req := validFetchUserByNicknameRequest()
 
-	mapperMock.On("ToFetchUserByNicknameInput", req).Return(dto.FetchUserByNicknameInput{
+	mapper.On("ToFetchUserByNicknameRequest", req).Return(transport.FetchUserByNicknameRequest{
 		Nickname: req.GetNickname(),
 	})
 
-	repo.On("FetchUserByNickname", mock.Anything, mock.MatchedBy(func(input dto.FetchUserByNicknameInput) bool {
+	userRepo.On("FetchUserByNickname", mock.Anything, mock.MatchedBy(func(input transport.FetchUserByNicknameRequest) bool {
 		return input.Nickname == req.Nickname
-	})).Return(dto.UserProfileResponse{}, errs.ErrInternal)
+	})).Return(transport.UserProfileResponse{}, errs.ErrInternal)
 
-	_, err := userService.FetchUserProfileByNickname(context.Background(), req)
+	_, err := svc.FetchUserProfileByNickname(context.Background(), req)
 
 	assert.Error(t, err)
 	st, ok := status.FromError(err)
@@ -125,28 +125,28 @@ func TestGetUserByNickname_InternalErr(t *testing.T) {
 	assert.Equal(t, codes.Internal, st.Code())
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
-	repo.AssertExpectations(t)
-	mapperMock.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
 // TestGetUserByNickname_NotFound ensures that if the user is not found by nickname,
 // the service responds with a gRPC NotFound error and the correct message.
 func TestGetUserByNickname_NotFound(t *testing.T) {
-	repo := new(mocks.UserRepoMock)
-	mapperMock := new(mocks.MockMapper)
-	userService := service.NewUserService(repo, mapperMock)
+	userRepo := new(mocks.UserRepoMock)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewUserService(userRepo, mapper)
 
 	req := validFetchUserByNicknameRequest()
 
-	mapperMock.On("ToFetchUserByNicknameInput", req).Return(dto.FetchUserByNicknameInput{
+	mapper.On("ToFetchUserByNicknameRequest", req).Return(transport.FetchUserByNicknameRequest{
 		Nickname: req.GetNickname(),
 	})
 
-	repo.On("FetchUserByNickname", mock.Anything, mock.MatchedBy(func(input dto.FetchUserByNicknameInput) bool {
+	userRepo.On("FetchUserByNickname", mock.Anything, mock.MatchedBy(func(input transport.FetchUserByNicknameRequest) bool {
 		return input.Nickname == req.Nickname
-	})).Return(dto.UserProfileResponse{}, errs.ErrUserNotFound)
+	})).Return(transport.UserProfileResponse{}, errs.ErrUserNotFound)
 
-	_, err := userService.FetchUserProfileByNickname(context.Background(), req)
+	_, err := svc.FetchUserProfileByNickname(context.Background(), req)
 
 	assert.Error(t, err)
 	st, ok := status.FromError(err)
@@ -154,6 +154,6 @@ func TestGetUserByNickname_NotFound(t *testing.T) {
 	assert.Equal(t, codes.NotFound, st.Code())
 	assert.Equal(t, errs.ErrUserNotFound.Error(), st.Message())
 
-	repo.AssertExpectations(t)
-	mapperMock.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }

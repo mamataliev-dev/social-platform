@@ -4,10 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/transport"
 )
 
-// Model used for internal data transfer
+// ---------------------------------------------------------------------
+// Model used for domain data transfer
+// ---------------------------------------------------------------------
 
 // User represents a domain user entity.
 // Fields with pointer types are optional (maybe nil).
@@ -27,18 +29,18 @@ type User struct {
 // AuthRepository defines methods for user authentication persistence Create.
 type AuthRepository interface {
 	// CreateUser persists a new user and returns the created entity with ID and timestamps populated.
-	CreateUser(ctx context.Context, user *User) (*User, error)
+	CreateUser(ctx context.Context, user User) (User, error)
 
 	// FetchUserByEmail retrieves a user by email; returns ErrUserNotFound if no record exists.
 	// INTERNAL: used by AuthService.Login for password validation.
-	FetchUserByEmail(ctx context.Context, input dto.FetchUserByEmailInput) (User, error)
+	FetchUserByEmail(ctx context.Context, email string) (User, error)
 }
 
 // UserRepository defines read-only retrieval by ID, Nickname or Email.
 type UserRepository interface {
 	// FetchUserByNickname looks up a public user profile by nickname.
-	FetchUserByNickname(ctx context.Context, input dto.FetchUserByNicknameInput) (dto.UserProfileResponse, error)
+	FetchUserByNickname(ctx context.Context, input transport.FetchUserByNicknameRequest) (transport.UserProfileResponse, error)
 
-	// FetchUserByID retrieves a user by their numeric ID (internal uses only).
-	FetchUserByID(ctx context.Context, input dto.FetchUserByIDInput) (dto.UserProfileResponse, error)
+	// FetchUserByID retrieves a user by their numeric ID (domain uses only).
+	FetchUserByID(ctx context.Context, input transport.FetchUserByIDRequest) (transport.UserProfileResponse, error)
 }

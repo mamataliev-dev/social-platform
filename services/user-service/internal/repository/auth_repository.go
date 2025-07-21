@@ -5,10 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-
 	"github.com/lib/pq"
-
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 )
@@ -25,7 +22,7 @@ func NewAuthPostgres(db *sql.DB) *AuthPostgres {
 func (r *AuthPostgres) CreateUser(ctx context.Context, u model.User) (model.User, error) {
 	const query = `
 		INSERT INTO users
-		(user_name, email, password_hash, nickname, bio, avatar_url)
+		(username, email, password_hash, nickname, bio, avatar_url)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at
     `
@@ -60,25 +57,18 @@ func (r *AuthPostgres) CreateUser(ctx context.Context, u model.User) (model.User
 
 // FetchUserByEmail retrieves a user by their email address.
 // INTERNAL USE ONLY: called by AuthService.Login to load a user’s stored password hash.
-func (r *AuthPostgres) FetchUserByEmail(ctx context.Context, input dto.FetchUserByEmailInput) (model.User, error) {
+func (r *AuthPostgres) FetchUserByEmail(ctx context.Context, email string) (model.User, error) {
 	query := `
-		SELECT id, user_name, email, password_hash, nickname, bio, avatar_url, last_login_at, created_at, updated_at 
-		FROM users 
+		SELECT id, nickname, email, password_hash FROM users
 		WHERE email = $1
 	`
 
 	var u model.User
-	err := r.DB.QueryRowContext(ctx, query, input.Email).Scan(
+	err := r.DB.QueryRowContext(ctx, query, email).Scan(
 		&u.ID,
-		&u.Username,
+		&u.Nickname,
 		&u.Email,
 		&u.PasswordHash,
-		&u.Nickname,
-		&u.Bio,
-		&u.AvatarURL,
-		&u.LastLogin,
-		&u.CreatedAt,
-		&u.UpdatedAt,
 	)
 
 	if err != nil {

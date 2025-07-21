@@ -10,7 +10,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth"
+	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth/v1"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/domain"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/transport"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/service"
@@ -27,31 +29,47 @@ func validLoginRequest() *userauthpb.LoginRequest {
 
 func TestLogin_Success(t *testing.T) {
 	authRepo := new(mocks.AuthRepoMock)
+	userRepo := new(mocks.UserRepoMock)
 	tokenRepo := new(mocks.TokenRepoMock)
 	jwtMock := new(mocks.JWTGeneratorMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtMock, hasher)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewAuthService(authRepo, userRepo, tokenRepo, jwtMock, hasher, mapper)
 
 	req := validLoginRequest()
-	user := testdata.ValidUserProfileResponse()
-	tokenResp := testdata.ValidTokenPair()
+	user := testdata.SampleUserModel()
 
+	mapper.On("ToLoginRequest", req).Return(transport.LoginRequest{
+		Email:    req.GetEmail(),
+		Password: req.GetPassword(),
+	})
+
+	tokenResp := testdata.ValidTokenPair()
 	expectedRefreshToken := tokenResp.RefreshToken
 	expectedExpiresAt := time.Now().Add(7 * 24 * time.Hour)
 
-	authRepo.On("GetUserByEmail", mock.Anything, mock.MatchedBy(func(input model.LoginInput) bool {
-		return input.Email == req.Email && input.Password == req.Password
-	})).Return(user, nil)
+	authRepo.On("FetchUserByEmail", mock.Anything, req.Email).Return(user, nil)
 
 	hasher.On("VerifyPassword", user.PasswordHash, req.Password).Return(nil)
 
-	jwtMock.On("CreateTokenPair", user.ID, user.Nickname).Return(tokenResp, nil)
+	jwtMock.On("CreateTokenPair", mock.MatchedBy(func(input domain.CreateTokenPairInput) bool {
+		return input.UserID == user.ID &&
+			input.Nickname == user.Nickname
+	})).Return(tokenResp, nil)
 
-	tokenRepo.On("SaveRefreshToken", mock.Anything, user.ID, expectedRefreshToken, mock.MatchedBy(func(exp time.Time) bool {
-		return exp.Sub(expectedExpiresAt) < 2*time.Second
+	tokenRepo.On("SaveRefreshToken", mock.Anything, mock.MatchedBy(func(input domain.SaveRefreshTokenInput) bool {
+		return input.UserID == user.ID &&
+			input.Token == expectedRefreshToken &&
+			input.ExpiresAt.Sub(expectedExpiresAt) < 2*time.Second
 	})).Return(nil)
 
-	resp, err := authService.Login(context.Background(), req)
+	mapper.On("ToAuthTokenResponse", tokenResp).
+		Return(&userauthpb.AuthTokenResponse{
+			AccessToken:  tokenResp.AccessToken,
+			RefreshToken: tokenResp.RefreshToken,
+		})
+
+	resp, err := svc.Login(context.Background(), req)
 
 	assert.NoError(t, err)
 	assert.Equal(t, tokenResp.AccessToken, resp.AccessToken)
@@ -61,22 +79,28 @@ func TestLogin_Success(t *testing.T) {
 	tokenRepo.AssertExpectations(t)
 	hasher.AssertExpectations(t)
 	jwtMock.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
 func TestLogin_InternalDBError(t *testing.T) {
 	authRepo := new(mocks.AuthRepoMock)
+	userRepo := new(mocks.UserRepoMock)
 	tokenRepo := new(mocks.TokenRepoMock)
-	jwtGen := new(mocks.JWTGeneratorMock)
+	jwtMock := new(mocks.JWTGeneratorMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtGen, hasher)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewAuthService(authRepo, userRepo, tokenRepo, jwtMock, hasher, mapper)
 
 	req := validLoginRequest()
 
-	authRepo.On("GetUserByEmail", mock.Anything, mock.MatchedBy(func(input model.LoginInput) bool {
-		return input.Email == req.Email && input.Password == req.Password
-	})).Return(model.UserDTO{}, errs.ErrDBFailure)
+	mapper.On("ToLoginRequest", req).Return(transport.LoginRequest{
+		Email:    req.GetEmail(),
+		Password: req.GetPassword(),
+	})
 
-	_, err := authService.Login(context.Background(), req)
+	authRepo.On("FetchUserByEmail", mock.Anything, req.Email).Return(model.User{}, errs.ErrDBFailure)
+
+	_, err := svc.Login(context.Background(), req)
 
 	assert.Error(t, err)
 
@@ -86,22 +110,28 @@ func TestLogin_InternalDBError(t *testing.T) {
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
 func TestLogin_InternalError(t *testing.T) {
 	authRepo := new(mocks.AuthRepoMock)
+	userRepo := new(mocks.UserRepoMock)
 	tokenRepo := new(mocks.TokenRepoMock)
-	jwtGen := new(mocks.JWTGeneratorMock)
+	jwtMock := new(mocks.JWTGeneratorMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtGen, hasher)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewAuthService(authRepo, userRepo, tokenRepo, jwtMock, hasher, mapper)
 
 	req := validLoginRequest()
 
-	authRepo.On("GetUserByEmail", mock.Anything, mock.MatchedBy(func(input model.LoginInput) bool {
-		return input.Email == req.Email && input.Password == req.Password
-	})).Return(model.UserDTO{}, errs.ErrInternal)
+	mapper.On("ToLoginRequest", req).Return(transport.LoginRequest{
+		Email:    req.GetEmail(),
+		Password: req.GetPassword(),
+	})
 
-	_, err := authService.Login(context.Background(), req)
+	authRepo.On("FetchUserByEmail", mock.Anything, req.Email).Return(model.User{}, errs.ErrInternal)
+
+	_, err := svc.Login(context.Background(), req)
 
 	assert.Error(t, err)
 
@@ -111,22 +141,28 @@ func TestLogin_InternalError(t *testing.T) {
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
 func TestLogin_UserNotFound(t *testing.T) {
 	authRepo := new(mocks.AuthRepoMock)
+	userRepo := new(mocks.UserRepoMock)
 	tokenRepo := new(mocks.TokenRepoMock)
-	jwtGen := new(mocks.JWTGeneratorMock)
+	jwtMock := new(mocks.JWTGeneratorMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtGen, hasher)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewAuthService(authRepo, userRepo, tokenRepo, jwtMock, hasher, mapper)
 
 	req := validLoginRequest()
 
-	authRepo.On("GetUserByEmail", mock.Anything, mock.MatchedBy(func(input model.LoginInput) bool {
-		return input.Email == req.Email && input.Password == req.Password
-	})).Return(model.UserDTO{}, errs.ErrUserNotFound)
+	mapper.On("ToLoginRequest", req).Return(transport.LoginRequest{
+		Email:    req.GetEmail(),
+		Password: req.GetPassword(),
+	})
 
-	_, err := authService.Login(context.Background(), req)
+	authRepo.On("FetchUserByEmail", mock.Anything, req.Email).Return(model.User{}, errs.ErrUserNotFound)
+
+	_, err := svc.Login(context.Background(), req)
 
 	assert.Error(t, err)
 	st, ok := status.FromError(err)
@@ -135,25 +171,31 @@ func TestLogin_UserNotFound(t *testing.T) {
 	assert.Equal(t, errs.ErrUserNotFound.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 }
 
 func TestLogin_InvalidPassword(t *testing.T) {
 	authRepo := new(mocks.AuthRepoMock)
+	userRepo := new(mocks.UserRepoMock)
 	tokenRepo := new(mocks.TokenRepoMock)
-	jwtGen := new(mocks.JWTGeneratorMock)
+	jwtMock := new(mocks.JWTGeneratorMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtGen, hasher)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewAuthService(authRepo, userRepo, tokenRepo, jwtMock, hasher, mapper)
 
 	req := validLoginRequest()
-	user := testdata.ValidUserProfileResponse()
+	user := testdata.SampleUserModel()
 
-	authRepo.On("GetUserByEmail", mock.Anything, mock.MatchedBy(func(input model.LoginInput) bool {
-		return input.Email == req.Email && input.Password == req.Password
-	})).Return(user, nil)
+	mapper.On("ToLoginRequest", req).Return(transport.LoginRequest{
+		Email:    req.GetEmail(),
+		Password: req.GetPassword(),
+	})
+
+	authRepo.On("FetchUserByEmail", mock.Anything, req.Email).Return(user, nil)
 
 	hasher.On("VerifyPassword", user.PasswordHash, req.Password).Return(errs.ErrInvalidPassword)
 
-	_, err := authService.Login(context.Background(), req)
+	_, err := svc.Login(context.Background(), req)
 
 	assert.Error(t, err)
 	st, ok := status.FromError(err)
@@ -162,47 +204,37 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	assert.Equal(t, errs.ErrInvalidPassword.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 	hasher.AssertExpectations(t)
 }
 
-// Change this code when protoc-gen-third_party is installed
-// Add input validation checker
-//func TestLogin_InvalidInput(t *testing.T) {
-//	authService := service.NewAuthService(nil, nil, nil)
-//
-//	req := &userauthpb.LoginRequest{
-//		Email:    "",
-//		Password: "",
-//	}
-//
-//	_, err := authService.Login(context.Background(), req)
-//
-//	assert.Error(t, err)
-//	st, ok := status.FromError(err)
-//	assert.True(t, ok)
-//	assert.Equal(t, codes.InvalidArgument, st.Code())
-//	assert.Equal(t, errs.ErrMissingRequiredData.Error(), st.Message())
-//}
-
 func TestLogin_JWTGenerationFail(t *testing.T) {
 	authRepo := new(mocks.AuthRepoMock)
+	userRepo := new(mocks.UserRepoMock)
 	tokenRepo := new(mocks.TokenRepoMock)
-	jwtGen := new(mocks.JWTGeneratorMock)
+	jwtMock := new(mocks.JWTGeneratorMock)
 	hasher := new(mocks.MockHasher)
-	authService := service.NewAuthService(authRepo, tokenRepo, jwtGen, hasher)
+	mapper := new(mocks.MockMapper)
+	svc := service.NewAuthService(authRepo, userRepo, tokenRepo, jwtMock, hasher, mapper)
 
 	req := validLoginRequest()
-	user := testdata.ValidUserProfileResponse()
+	user := testdata.SampleUserModel()
 
-	authRepo.On("GetUserByEmail", mock.Anything, mock.MatchedBy(func(input model.LoginInput) bool {
-		return input.Email == req.Email && input.Password == req.Password
-	})).Return(user, nil)
+	mapper.On("ToLoginRequest", req).Return(transport.LoginRequest{
+		Email:    req.GetEmail(),
+		Password: req.GetPassword(),
+	})
+
+	authRepo.On("FetchUserByEmail", mock.Anything, req.Email).Return(user, nil)
 
 	hasher.On("VerifyPassword", user.PasswordHash, req.Password).Return(nil)
 
-	jwtGen.On("CreateTokenPair", user.ID, user.Nickname).Return(model.TokenPair{}, errs.ErrTokenSigningFailed)
+	jwtMock.On("CreateTokenPair", mock.MatchedBy(func(input domain.CreateTokenPairInput) bool {
+		return input.UserID == user.ID &&
+			input.Nickname == user.Nickname
+	})).Return(model.TokenPair{}, errs.ErrTokenSigningFailed)
 
-	_, err := authService.Login(context.Background(), req)
+	_, err := svc.Login(context.Background(), req)
 
 	assert.Error(t, err)
 	st, ok := status.FromError(err)
@@ -211,6 +243,7 @@ func TestLogin_JWTGenerationFail(t *testing.T) {
 	assert.Equal(t, errs.ErrInternal.Error(), st.Message())
 
 	authRepo.AssertExpectations(t)
-	jwtGen.AssertExpectations(t)
+	mapper.AssertExpectations(t)
 	hasher.AssertExpectations(t)
+	jwtMock.AssertExpectations(t)
 }

@@ -3,7 +3,7 @@ package errs
 import "errors"
 
 var (
-	ErrInternal  = errors.New("internal error")
+	ErrInternal  = errors.New("domain error")
 	ErrDBFailure = errors.New("database failure")
 
 	ErrMissingMetadata         = errors.New("missing metadata")
