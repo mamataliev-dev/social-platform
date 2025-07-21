@@ -1,0 +1,176 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "user/v1/user.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "UserService",
+      "description": "Public read-only access to user profiles."
+    },
+    {
+      "name": "InternalUserService",
+      "description": "Internal-only user profile lookups by ID."
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/domain/users/{userId}": {
+      "get": {
+        "summary": "Fetch User Profile by ID (Internal)",
+        "description": "Service-to-service lookup by user ID. DO NOT expose publicly.",
+        "operationId": "InternalUserService_FetchUserProfileByID",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UserProfile"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "description": "The numeric ID of the user.",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "User",
+          "Internal"
+        ]
+      }
+    },
+    "/v1/users/{nickname}": {
+      "get": {
+        "summary": "Get User Profile by Nickname",
+        "description": "Look up a public profile via its unique nickname.",
+        "operationId": "UserService_FetchUserProfileByNickname",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UserProfile"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "nickname",
+            "description": "The unique nickname to look up.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "User"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v1UserProfile": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "int64",
+          "description": "The globally unique ID for this user.",
+          "readOnly": true
+        },
+        "username": {
+          "type": "string",
+          "description": "The user’s chosen display name.",
+          "readOnly": true
+        },
+        "email": {
+          "type": "string",
+          "description": "The user’s email (publicly visible only if you choose).",
+          "readOnly": true
+        },
+        "nickname": {
+          "type": "string",
+          "description": "The unique nickname by which others look you up."
+        },
+        "bio": {
+          "type": "string",
+          "description": "Public biography."
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "URL to the avatar image."
+        },
+        "lastLogin": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamps are always OUTPUT_ONLY on a read‐only API.",
+          "readOnly": true
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      },
+      "title": "---------------------------------------------------------------------\nResource definition for UserProfile\n---------------------------------------------------------------------",
+      "required": [
+        "nickname"
+      ]
+    }
+  }
+}

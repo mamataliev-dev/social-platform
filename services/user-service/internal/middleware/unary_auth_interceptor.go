@@ -1,3 +1,5 @@
+// Package middleware provides gRPC interceptors for authentication, validation,
+// and timeout handling. It supports Single Responsibility and Open/Closed principles.
 package middleware
 
 import (
@@ -15,12 +17,6 @@ import (
 )
 
 func UnaryAuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	//publicEndpoints := map[string]bool{
-	//	"/user_auth.AuthService/Register":     true,
-	//	"/user_auth.AuthService/Login":        true,
-	//	"/user_auth.AuthService/Logout":       true,
-	//	"/user_auth.AuthService/RefreshToken": true,
-	//}
 	publicEndpoints := map[string]bool{
 		"/user.auth.v1.AuthService/Register":     true,
 		"/user.auth.v1.AuthService/Login":        true,

@@ -1,6 +1,6 @@
+// Package transport defines DTOs for transport-level authentication operations
+// in the user-service. It supports Single Responsibility and Open/Closed principles.
 package transport
-
-// DTO used for data transfer over the HTTP
 
 // RegisterRequest is what your HTTP handler binds on POST v1/auth/register
 type RegisterRequest struct {

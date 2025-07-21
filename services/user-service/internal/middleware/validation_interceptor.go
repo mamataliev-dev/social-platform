@@ -1,3 +1,5 @@
+// Package middleware provides gRPC interceptors for request validation.
+// It supports Single Responsibility and Open/Closed principles.
 package middleware
 
 import (

@@ -1,3 +1,5 @@
+// Package security provides JWT generation and validation utilities for the
+// user-service. It supports Dependency Inversion and Single Responsibility principles.
 package security
 
 import (

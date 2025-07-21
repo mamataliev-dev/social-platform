@@ -1,3 +1,5 @@
+// Package repository provides database connection setup for the user-service.
+// It supports Dependency Inversion by abstracting database initialization.
 package repository
 
 import (

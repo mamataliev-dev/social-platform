@@ -1,3 +1,5 @@
+// Package domain defines DTOs for domain-level token operations in the user-service.
+// It supports Single Responsibility and Open/Closed principles.
 package domain
 
 import "time"

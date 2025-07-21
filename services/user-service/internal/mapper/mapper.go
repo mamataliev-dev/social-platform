@@ -1,3 +1,7 @@
+// Package mapper provides a concrete implementation of the Converter interface,
+// handling transformations between gRPC protobuf messages and internal domain models.
+// It follows the Single Responsibility Principle by isolating data mapping logic,
+// thus decoupling the service's transport layer from its business logic.
 package mapper
 
 import (
@@ -11,10 +15,14 @@ import (
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 )
 
-// Mapper handles conversions between protobuf types and domain types.
+// Mapper implements the Converter interface, providing methods to map data
+// between gRPC/protobuf structures and the service's internal domain models.
+// This decouples the transport layer from the business logic, adhering to the
+// Single Responsibility and Dependency Inversion principles.
 type Mapper struct{}
 
-// NewMapper creates a new Mapper instance.
+// NewMapper constructs a new Mapper instance. Its single responsibility is to
+// provide a concrete implementation for data transformations.
 func NewMapper() *Mapper {
 	return &Mapper{}
 }
@@ -27,8 +35,10 @@ func timestampOrNil(t time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(t)
 }
 
-// ToUserModel maps a RegisterRequest and its hashed password to a User.
-// Returns an empty User if req is nil.
+// ToUserModel maps a gRPC RegisterRequest and a hashed password to a domain User model.
+// This function's single responsibility is to handle the creation of a User
+// entity from registration data, ensuring the transport model does not leak
+// into the domain layer.
 func (m *Mapper) ToUserModel(req *userauthpb.RegisterRequest, hashedPassword string) model.User {
 	if req == nil {
 		return model.User{}
@@ -43,8 +53,8 @@ func (m *Mapper) ToUserModel(req *userauthpb.RegisterRequest, hashedPassword str
 	}
 }
 
-// ToLoginRequest maps a LoginRequest to a LoginInput.
-// Returns an empty LoginInput if req is nil.
+// ToLoginRequest maps a gRPC LoginRequest to a transport LoginRequest DTO.
+// It isolates the transport-specific login structure from the service layer.
 func (m *Mapper) ToLoginRequest(req *userauthpb.LoginRequest) transport.LoginRequest {
 	if req == nil {
 		return transport.LoginRequest{}
@@ -55,6 +65,9 @@ func (m *Mapper) ToLoginRequest(req *userauthpb.LoginRequest) transport.LoginReq
 	}
 }
 
+// ToAuthTokenResponse maps a domain TokenPair model to a gRPC AuthTokenResponse.
+// This ensures the service's internal token representation is not directly
+// exposed to the client.
 func (m *Mapper) ToAuthTokenResponse(pair model.TokenPair) *userauthpb.AuthTokenResponse {
 	return &userauthpb.AuthTokenResponse{
 		AccessToken:  pair.AccessToken,
@@ -62,8 +75,8 @@ func (m *Mapper) ToAuthTokenResponse(pair model.TokenPair) *userauthpb.AuthToken
 	}
 }
 
-// ToFetchUserByNicknameRequest maps a FetchUserProfileByNicknameRequest to FetchUserByNicknameRequest.
-// Returns an empty FetchUserByNicknameRequest if req is nil.
+// ToFetchUserByNicknameRequest maps a gRPC FetchUserProfileByNicknameRequest
+// to a transport FetchUserByNicknameRequest DTO.
 func (m *Mapper) ToFetchUserByNicknameRequest(req *userpb.FetchUserProfileByNicknameRequest) transport.FetchUserByNicknameRequest {
 	if req == nil {
 		return transport.FetchUserByNicknameRequest{}
@@ -71,8 +84,8 @@ func (m *Mapper) ToFetchUserByNicknameRequest(req *userpb.FetchUserProfileByNick
 	return transport.FetchUserByNicknameRequest{Nickname: req.GetNickname()}
 }
 
-// ToFetchUserByIDRequest maps a FetchUserProfileByIDRequest to FetchUserByIDRequest.
-// Returns an empty FetchUserByIDRequest if req is nil.
+// ToFetchUserByIDRequest maps a gRPC FetchUserProfileByIDRequest to a
+// transport FetchUserByIDRequest DTO.
 func (m *Mapper) ToFetchUserByIDRequest(req *userpb.FetchUserProfileByIDRequest) transport.FetchUserByIDRequest {
 	if req == nil {
 		return transport.FetchUserByIDRequest{}
@@ -80,7 +93,9 @@ func (m *Mapper) ToFetchUserByIDRequest(req *userpb.FetchUserProfileByIDRequest)
 	return transport.FetchUserByIDRequest{UserId: req.GetUserId()}
 }
 
-// ToFetchUserProfileResponse maps a UserDTO to FetchUserProfileResponse.
+// ToFetchUserProfileResponse maps a transport UserProfileResponse DTO to a gRPC UserProfile.
+// It handles the conversion of domain data, including timestamps, into the
+// protobuf format expected by gRPC clients.
 func (m *Mapper) ToFetchUserProfileResponse(u transport.UserProfileResponse) *userpb.UserProfile {
 	return &userpb.UserProfile{
 		UserId:    u.ID,
@@ -95,8 +110,8 @@ func (m *Mapper) ToFetchUserProfileResponse(u transport.UserProfileResponse) *us
 	}
 }
 
-// ToGetRefreshTokenRequest maps a RefreshTokenPayload to a GetRefreshToken.
-// Returns an empty GetRefreshToken if req is nil.
+// ToGetRefreshTokenRequest maps a gRPC RefreshTokenPayload to a transport
+// RefreshTokenRequest DTO.
 func (m *Mapper) ToGetRefreshTokenRequest(req *userauthpb.RefreshTokenPayload) transport.RefreshTokenRequest {
 	if req == nil {
 		return transport.RefreshTokenRequest{}
@@ -104,13 +119,15 @@ func (m *Mapper) ToGetRefreshTokenRequest(req *userauthpb.RefreshTokenPayload) t
 	return transport.RefreshTokenRequest{RefreshToken: req.GetRefreshToken()}
 }
 
-// ToLogoutResponse creates a LogoutResponse with the provided message.
+// ToLogoutResponse maps a transport LogoutResponse DTO to a gRPC LogoutResponse.
 func (m *Mapper) ToLogoutResponse(domain transport.LogoutResponse) *userauthpb.LogoutResponse {
 	return &userauthpb.LogoutResponse{
 		Message: domain.Message,
 	}
 }
 
+// ToRefreshTokenRequest maps a gRPC RefreshTokenPayload to a transport
+// RefreshTokenRequest DTO, used for token refresh operations.
 func (m *Mapper) ToRefreshTokenRequest(req *userauthpb.RefreshTokenPayload) transport.RefreshTokenRequest {
 	return transport.RefreshTokenRequest{
 		RefreshToken: req.GetRefreshToken(),

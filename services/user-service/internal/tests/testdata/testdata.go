@@ -1,3 +1,5 @@
+// Package testdata provides reusable test data and helpers for user-service tests.
+// It supports Single Responsibility and Open/Closed principles.
 package testdata
 
 import (

@@ -1,8 +1,11 @@
+// Package security provides bcrypt-based password hashing and verification for
+// the user-service. It supports Dependency Inversion and Single Responsibility principles.
 package security
 
 import (
-	"golang.org/x/crypto/bcrypt"
 	"log/slog"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 )

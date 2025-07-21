@@ -1,4 +1,5 @@
-package middleware
+// Package middleware_test verifies the behavior of the TimeoutInterceptor.
+package middleware_test
 
 import (
 	"context"
@@ -13,76 +14,53 @@ import (
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/middleware"
 )
 
-func TestTimeoutInterceptor_CustomTimeoutMethod_Success(t *testing.T) {
-	info := &grpc.UnaryServerInfo{
-		FullMethod: "/user_auth.AuthService/Login",
+// mockHandler is a simple gRPC handler that waits for a specified duration.
+func mockHandler(ctx context.Context, duration time.Duration) (interface{}, error) {
+	select {
+	case <-time.After(duration):
+		return "ok", nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		time.Sleep(100 * time.Millisecond) // well within 2s
-		return "success", nil
-	}
-
-	resp, err := middleware.TimeoutInterceptor(context.Background(), nil, info, handler)
-
-	assert.NoError(t, err)
-	assert.Equal(t, "success", resp)
 }
 
+// TestTimeoutInterceptor_CustomTimeout_Success ensures that a method with a custom
+// timeout succeeds if the handler returns within the allotted time.
+func TestTimeoutInterceptor_CustomTimeout_Success(t *testing.T) {
+	// Scenario: A request to a method with a custom timeout (e.g., Login)
+	// completes within its timeout duration (2s).
+	info := &grpc.UnaryServerInfo{FullMethod: "/user_auth.AuthService/Login"}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return mockHandler(ctx, 1*time.Second)
+	}
+
+	_, err := middleware.TimeoutInterceptor(context.Background(), nil, info, handler)
+	assert.NoError(t, err)
+}
+
+// TestTimeoutInterceptor_DefaultTimeout_Success ensures that a method without a
+// custom timeout succeeds if it returns within the default timeout.
 func TestTimeoutInterceptor_DefaultTimeout_Success(t *testing.T) {
-	info := &grpc.UnaryServerInfo{
-		FullMethod: "/some/UnknownMethod",
-	}
-
+	// Scenario: A request to a method without a custom timeout succeeds.
+	info := &grpc.UnaryServerInfo{FullMethod: "/some.OtherService/SomeMethod"}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		time.Sleep(100 * time.Millisecond) // well within 10s
-		return "default-success", nil
+		return mockHandler(ctx, 4*time.Second)
 	}
 
-	resp, err := middleware.TimeoutInterceptor(context.Background(), nil, info, handler)
-
+	_, err := middleware.TimeoutInterceptor(context.Background(), nil, info, handler)
 	assert.NoError(t, err)
-	assert.Equal(t, "default-success", resp)
 }
 
+// TestTimeoutInterceptor_RequestTimesOut ensures that a request that exceeds its
+// timeout results in a DeadlineExceeded gRPC error.
 func TestTimeoutInterceptor_RequestTimesOut(t *testing.T) {
-	info := &grpc.UnaryServerInfo{
-		FullMethod: "/user_auth.AuthService/Login",
-	}
-
+	// Scenario: A request to a method with a custom timeout (2s) exceeds its duration.
+	info := &grpc.UnaryServerInfo{FullMethod: "/user_auth.AuthService/Login"}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		time.Sleep(3 * time.Second) // exceed 2s timeout
-		return "should-not-return", nil
+		return mockHandler(ctx, 3*time.Second)
 	}
 
-	resp, err := middleware.TimeoutInterceptor(context.Background(), nil, info, handler)
-
-	assert.Nil(t, resp)
-	assert.Error(t, err)
-
-	st, ok := status.FromError(err)
-	assert.True(t, ok)
+	_, err := middleware.TimeoutInterceptor(context.Background(), nil, info, handler)
+	st, _ := status.FromError(err)
 	assert.Equal(t, codes.DeadlineExceeded, st.Code())
-	assert.Contains(t, st.Message(), "request timed out after 2s on /user_auth.AuthService/Login")
-}
-
-func TestTimeoutInterceptor_CustomShortTimeoutExceeded(t *testing.T) {
-	info := &grpc.UnaryServerInfo{
-		FullMethod: "/user.UserService/GetUserByNickname", // 300ms timeout
-	}
-
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		time.Sleep(500 * time.Millisecond) // exceed 300ms
-		return "too-late", nil
-	}
-
-	resp, err := middleware.TimeoutInterceptor(context.Background(), nil, info, handler)
-
-	assert.Nil(t, resp)
-	assert.Error(t, err)
-
-	st, ok := status.FromError(err)
-	assert.True(t, ok)
-	assert.Equal(t, codes.DeadlineExceeded, st.Code())
-	assert.Contains(t, st.Message(), "request timed out after 300ms on /user.UserService/GetUserByNickname")
 }

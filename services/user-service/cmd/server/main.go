@@ -1,3 +1,8 @@
+// Package main is the entrypoint for the user-service. It loads configuration,
+// initializes dependencies (logger, database, repositories, services), and starts
+// both gRPC and HTTP REST servers. This package follows the Dependency Inversion
+// principle by injecting abstractions for repositories, services, and utilities.
+// It is closed for modification but open for extension via configuration and DI.
 package main
 
 import (
@@ -30,12 +35,18 @@ import (
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/service"
 )
 
+// main is the entrypoint for the user-service application. It delegates startup
+// logic to run and logs any fatal errors.
 func main() {
 	if err := run(); err != nil {
 		log.Fatalf("application error: %v", err)
 	}
 }
 
+// run loads configuration, sets up logging, initializes the database and all
+// service dependencies, and starts both gRPC and HTTP REST servers. It handles
+// graceful shutdown on interrupt signals. All dependencies are injected via
+// constructors, following Dependency Inversion and Single Responsibility.
 func run() error {
 	// Load environment and configuration
 	if err := godotenv.Load(); err != nil {
