@@ -1,3 +1,6 @@
+// Package model defines domain entities and repository interfaces for the
+// user-service. It enables Dependency Inversion by abstracting persistence and
+// domain logic, supporting Single Responsibility and Liskov Substitution.
 package model
 
 import (
@@ -6,10 +9,6 @@ import (
 
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/transport"
 )
-
-// ---------------------------------------------------------------------
-// Model used for domain data transfer
-// ---------------------------------------------------------------------
 
 // User represents a domain user entity.
 // Fields with pointer types are optional (maybe nil).
@@ -26,7 +25,8 @@ type User struct {
 	UpdatedAt    time.Time // Timestamp of last profile update
 }
 
-// AuthRepository defines methods for user authentication persistence Create.
+// AuthRepository defines methods for user authentication persistence.
+// It enables Dependency Inversion and Liskov Substitution for authentication storage.
 type AuthRepository interface {
 	// CreateUser persists a new user and returns the created entity with ID and timestamps populated.
 	CreateUser(ctx context.Context, user User) (User, error)
@@ -37,6 +37,7 @@ type AuthRepository interface {
 }
 
 // UserRepository defines read-only retrieval by ID, Nickname or Email.
+// It supports Interface Segregation and Liskov Substitution for user data access.
 type UserRepository interface {
 	// FetchUserByNickname looks up a public user profile by nickname.
 	FetchUserByNickname(ctx context.Context, input transport.FetchUserByNicknameRequest) (transport.UserProfileResponse, error)

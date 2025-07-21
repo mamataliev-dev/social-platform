@@ -1,3 +1,6 @@
+// Package repository implements persistence logic for user data retrieval.
+// It provides concrete implementations of UserRepository, following Dependency
+// Inversion and Liskov Substitution principles.
 package repository
 
 import (

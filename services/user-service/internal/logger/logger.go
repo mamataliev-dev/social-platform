@@ -1,3 +1,6 @@
+// Package logger provides structured logging setup for the user-service.
+// It configures slog for both development and production environments,
+// following the Single Responsibility Principle.
 package logger
 
 import (
@@ -5,6 +8,8 @@ import (
 	"os"
 )
 
+// SetupLogger configures the global slog logger based on the environment.
+// It enables Dependency Inversion by abstracting logger setup from consumers.
 func SetupLogger(env string) {
 	var handler slog.Handler
 

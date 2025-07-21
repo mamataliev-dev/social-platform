@@ -1,3 +1,6 @@
+// Package repository implements persistence logic for authentication-related
+// operations. It provides concrete implementations of AuthRepository, following
+// Dependency Inversion and Liskov Substitution principles.
 package repository
 
 import (
@@ -5,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"github.com/lib/pq"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"

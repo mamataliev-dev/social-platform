@@ -1,3 +1,6 @@
+// Package repository implements persistence logic for refresh token storage and
+// retrieval. It provides concrete implementations of TokenRepository, following
+// Dependency Inversion and Liskov Substitution principles.
 package repository
 
 import (

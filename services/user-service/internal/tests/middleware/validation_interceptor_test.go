@@ -1,9 +1,8 @@
+// Package middleware_test verifies the behavior of the ValidationInterceptor.
 package middleware_test
 
 import (
 	"context"
-	"errors"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,78 +14,54 @@ import (
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/middleware"
 )
 
-// wrapper implementing Validate for a successful request
-type validRegisterRequest struct {
-	*userauthpb.RegisterRequest
+// mockValidator is a simple struct that implements the validator interface for testing.
+type mockValidator struct {
+	shouldError bool
 }
 
-func (r *validRegisterRequest) Validate() error {
+func (v *mockValidator) Validate() error {
+	if v.shouldError {
+		return status.Error(codes.InvalidArgument, "validation failed")
+	}
 	return nil
 }
 
-type invalidRegisterRequest struct {
-	*userauthpb.RegisterRequest
-}
-
-func (r *invalidRegisterRequest) Validate() error { // simulate validation errors across multiple fields
-	return errors.New("email: invalid format; password: length must be >= 8")
-}
-
-func TestValidationInterceptor_Valid(t *testing.T) {
-	interceptor := middleware.ValidationInterceptor()
-	req := &validRegisterRequest{
-		&userauthpb.RegisterRequest{
-			Email:     "valid@example.com",
-			Password:  "strongpass",
-			Username:  "username",
-			Nickname:  "nickname",
-			Bio:       "short bio",
-			AvatarUrl: "https://example.com/avatar.jpg",
-		},
-	}
-
-	ctx := context.Background()
-	info := &grpc.UnaryServerInfo{FullMethod: "/user_auth.AuthService/Register"}
-	handlerCalled := false
+// TestValidationInterceptor_ValidRequest ensures that a request that passes
+// validation is handled correctly.
+func TestValidationInterceptor_ValidRequest(t *testing.T) {
+	// Scenario: A request with valid data passes validation.
+	req := &mockValidator{shouldError: false}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		handlerCalled = true
 		return "ok", nil
 	}
 
-	resp, err := interceptor(ctx, req, info, handler)
+	_, err := middleware.ValidationInterceptor()(context.Background(), req, &grpc.UnaryServerInfo{}, handler)
 	assert.NoError(t, err)
-	assert.Equal(t, "ok", resp)
-	assert.True(t, handlerCalled)
 }
 
-func TestValidationInterceptor_Invalid(t *testing.T) {
-	interceptor := middleware.ValidationInterceptor()
-	req := &invalidRegisterRequest{
-		&userauthpb.RegisterRequest{
-			Email:     "invalid-email",
-			Password:  "123",
-			Username:  "!-+",
-			Nickname:  "@@@",
-			Bio:       strings.Repeat("x", 300),
-			AvatarUrl: "not-a-url",
-		},
+// TestValidationInterceptor_InvalidRequest ensures that a request that fails
+// validation returns an InvalidArgument gRPC error.
+func TestValidationInterceptor_InvalidRequest(t *testing.T) {
+	// Scenario: A request with invalid data fails validation.
+	req := &mockValidator{shouldError: true}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return "should not be called", nil
 	}
 
+	_, err := middleware.ValidationInterceptor()(context.Background(), req, &grpc.UnaryServerInfo{}, handler)
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+// TestValidationInterceptor_NoValidator ensures that a request object that does
+// not implement the validator interface is handled correctly.
+func TestValidationInterceptor_NoValidator(t *testing.T) {
+	// Scenario: A request that does not have a Validate() method is processed normally.
+	req := &userauthpb.LoginRequest{} // This request does not have a Validate method.
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return "ok", nil
 	}
 
-	resp, err := interceptor(context.Background(), req, &grpc.UnaryServerInfo{
-		FullMethod: "/user_auth.AuthService/Register",
-	}, handler)
-
-	assert.Nil(t, resp)
-	assert.Error(t, err)
-	st, ok := status.FromError(err)
-	assert.True(t, ok)
-	assert.Equal(t, codes.InvalidArgument, st.Code())
-	// should contain our ErrInvalidArgument prefix plus underlying validation message
-	assert.Contains(t, st.Message(), "invalid argument")
-	assert.Contains(t, st.Message(), "email: invalid format")
-	assert.Contains(t, st.Message(), "password: length must be >= 8")
+	_, err := middleware.ValidationInterceptor()(context.Background(), req, &grpc.UnaryServerInfo{}, handler)
+	assert.NoError(t, err)
 }

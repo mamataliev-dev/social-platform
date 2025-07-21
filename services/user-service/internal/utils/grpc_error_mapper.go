@@ -1,3 +1,5 @@
+// Package utils provides utility functions for mapping domain errors to gRPC errors.
+// It supports Single Responsibility and Open/Closed principles.
 package utils
 
 import (

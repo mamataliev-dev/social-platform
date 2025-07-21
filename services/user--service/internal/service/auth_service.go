@@ -1,5 +1,7 @@
-// Package service implements the business logic for user authentication.
-// It follows SOLID principles by keeping each operation focused on a single
+// Package service implements the business logic for the user-service.
+// It contains services for authentication (AuthService), public user profile
+// retrieval (UserService), and internal user lookups (InternalUserService).
+// The package follows SOLID principles by keeping each operation focused on a single
 // responsibility and relying on abstractions (repositories, JWT generators,
 // hashers, and mappers) to invert dependencies.
 package service
@@ -21,17 +23,17 @@ import (
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/mapper"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/security"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/utils"
 )
 
 // AuthService orchestrates user registration, login, logout, and token refresh.
 // It depends on AuthRepository, UserRepository, TokenRepository, JWTGenerator,
 // Hasher, and Converter abstractions to keep business rules decoupled from storage.
 type AuthService struct {
-	userauthpb.UnimplementedAuthServiceServer
 	authRepo  model.AuthRepository
 	userRepo  model.UserRepository
 	tokenRepo model.TokenRepository
-	jwtGen    model.JWTGeneratorInterface
+	jwtGen    security.JWTGenerator
 	hasher    security.Hasher
 	converter mapper.Converter
 }
@@ -42,10 +44,9 @@ func NewAuthService(
 	authRepo model.AuthRepository,
 	userRepo model.UserRepository,
 	tokenRepo model.TokenRepository,
-	jwtGen model.JWTGeneratorInterface,
+	jwtGen security.JWTGenerator,
 	hasher security.Hasher,
-	converter mapper.Converter,
-) *AuthService {
+	converter mapper.Converter) *AuthService {
 	return &AuthService{
 		authRepo:  authRepo,
 		userRepo:  userRepo,
@@ -114,10 +115,14 @@ func (s *AuthService) Login(
 	user, err := s.authRepo.FetchUserByEmail(ctx, loginInput.Email)
 	if err != nil {
 		slog.Error("login failed: user not found", "err", err)
-		return nil, status.Error(codes.NotFound, errs.ErrUserNotFound.Error())
+		if errors.Is(err, errs.ErrUserNotFound) {
+			return nil, status.Error(codes.NotFound, errs.ErrUserNotFound.Error())
+		}
+		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
 	if err := s.hasher.VerifyPassword(user.PasswordHash, req.GetPassword()); err != nil {
+		slog.Error("invalid password provided", "err", err)
 		return nil, status.Error(codes.Unauthenticated, errs.ErrInvalidPassword.Error())
 	}
 
@@ -139,6 +144,7 @@ func (s *AuthService) Login(
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
+	slog.Info("login successful", "email", req.GetEmail())
 	return s.converter.ToAuthTokenResponse(tokenPair), nil
 }
 
@@ -150,11 +156,14 @@ func (s *AuthService) Logout(
 ) (*userauthpb.LogoutResponse, error) {
 	input := s.converter.ToGetRefreshTokenRequest(req)
 	if err := s.tokenRepo.DeleteRefreshToken(ctx, input); err != nil {
+		slog.Error("failed to delete refresh token", "err", err)
 		if errors.Is(err, errs.ErrTokenNotFound) {
 			return nil, status.Error(codes.NotFound, errs.ErrTokenNotFound.Error())
 		}
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
+
+	slog.Info("logout successful")
 	return s.converter.ToLogoutResponse(transport.LogoutResponse{
 		Message: "Logout successful",
 	}), nil
@@ -191,7 +200,7 @@ func (s *AuthService) RefreshToken(
 	userDTO, err := s.userRepo.FetchUserByID(ctx, profileReq)
 	if err != nil {
 		slog.Error("failed to get user by ID", "err", err)
-		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
+		return nil, utils.GrpcUserNotFoundError(err)
 	}
 
 	// 4) revoke old token
@@ -209,19 +218,22 @@ func (s *AuthService) RefreshToken(
 		slog.Error("failed to generate new token pair", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
-	if err := s.tokenRepo.SaveRefreshToken(ctx, domain.SaveRefreshTokenInput{
-		UserID:    userDTO.ID,
+	expiresAt := time.Now().Add(defaultTTL)
+	saveIn := domain.SaveRefreshTokenInput{
 		Token:     newPair.RefreshToken,
-		ExpiresAt: time.Now().Add(defaultTTL),
-	}); err != nil {
+		UserID:    userDTO.ID,
+		ExpiresAt: expiresAt,
+	}
+
+	if err = s.tokenRepo.SaveRefreshToken(ctx, saveIn); err != nil {
 		slog.Error("failed to save new refresh token", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
-
+	slog.Info("token refreshed successfully", "userID", userDTO.ID)
 	return s.converter.ToAuthTokenResponse(newPair), nil
 }
 
-// mapCreateUserError inspects repository errors for unique-constraint violations
+// mapCreateUserError inspects repository errors for unique‐constraint violations
 // and returns the appropriate gRPC AlreadyExists status. Returns nil otherwise.
 func mapCreateUserError(err error) error {
 	switch {

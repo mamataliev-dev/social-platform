@@ -1,3 +1,5 @@
+// Package transport defines DTOs for transport-level user operations in the
+// user-service. It supports Single Responsibility and Open/Closed principles.
 package transport
 
 import "time"

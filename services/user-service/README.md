@@ -1,439 +1,207 @@
-# User Service – Comprehensive Documentation
-
----
-
-## Setup Requirements
-
-Before generating code, run:
-
-```sh
-git clone https://github.com/googleapis/googleapis.git api/proto/third_party/googleapis
-```
-
----
+# User Service
 
 ## 1. Overview & Architecture
 
-The **user-service** is a Go-based microservice responsible for user management and authentication in a microservices-based social platform. It exposes both gRPC and REST APIs (via grpc-gateway) and is designed for extensibility, security, and integration with other services.
+The user-service is a Go-based microservice responsible for user management and authentication in a microservices-based social platform. It exposes both gRPC and REST APIs (via grpc-gateway) and is designed for extensibility, security, and integration with other services.
 
 ### **Key Components**
 - **UserService**: Public, read-only access to user profiles by nickname.
+- **InternalUserService**: Internal-only user profile lookups by user ID (for service-to-service communication). Not exposed to external clients.
 - **AuthService**: Handles registration, login, logout, and token refresh.
 - **Internal Structure**: Organized into service, repository, model, middleware, security, config, logger, and tests.
 
+### **Project Structure**
+
+/user-service
+|-- cmd/server/main.go         # Service entrypoint: initializes and starts gRPC/REST servers.
+|-- internal/                  # All core application logic, not exposed to other services.
+|   |-- config/                # Configuration loading (from YAML and env vars).
+|   |-- dto/                   # Data Transfer Objects for domain and transport layers.
+|   |-- errs/                  # Custom domain-specific errors.
+|   |-- logger/                # Logging setup and configuration.
+|   |-- mapper/                # Data mapping between protobuf, domain, and DTOs.
+|   |-- middleware/            # gRPC interceptors (auth, validation, timeouts).
+|   |-- model/                 # Domain models and repository interfaces.
+|   |-- repository/            # Database interactions (PostgreSQL implementation).
+|   |-- security/              # Password hashing and JWT generation.
+|   |-- service/               # Core business logic for auth and user services.
+|   |-- tests/                 # Unit and integration tests, including mocks.
+|   |-- utils/                 # Utility functions (e.g., error mappers).
+|-- migrations/                # SQL database migration files.
+|-- config.yaml                # Default configuration for the service.
+|-- Dockerfile                 # Containerization instructions.
+|-- Makefile                   # Build, run, and test commands.
+|-- README.md                  # This file.
+
 ### **Architecture Diagram**
+
 ```mermaid
-graph TD
-  subgraph API_Gateway_Layer
-    Gateway["API Gateway<br/> (grpc-gateway + JWT)"]
+graph TB
+  subgraph "Client Layer"
+    C["Client\n(Web/Mobile App)"]
   end
 
-  subgraph Services
-    UserService["UserService<br/> (Public gRPC + REST)"]
-    AuthService["AuthService<br/> (Public gRPC + REST)"]
+  subgraph "API Gateway Layer (gRPC-Gateway + JWT)"
+    G["API Gateway"]
   end
 
-  subgraph Databases
-    UserDB[(PostgreSQL<br/> User DB)]
-    AuthDB[(PostgreSQL<br/> Auth DB)]
+  subgraph "Public User Service (user-service)"
+    A["AuthService\ngRPC"]
+    U["UserService\ngRPC"]
   end
 
-  Client["Client<br/> (Web App)"]
-  JWT["JWT Access Token"]
+  subgraph "Internal User Service (internal-user-service)"
+    I["InternalUserService\ngRPC"]
+  end
 
-  Client -->|HTTP REST| Gateway
-  Gateway -->|gRPC: FetchUserProfileByNickname| UserService
-  Gateway -->|gRPC: Register/Login/Logout<br/>RefreshToken| AuthService
+  subgraph "Other Backends"
+    B["Backend Services"]
+  end
 
-  UserService -->|DB Read| UserDB
-  AuthService -->|DB Read/Write| AuthDB
+  subgraph "Data Layer"
+    DB[(PostgreSQL Database)]
+  end
 
-  Client -->|Receives JWT| JWT
-  JWT -->|Sent in Authorization Header| Gateway
+  C -->|REST/JSON + JWT| G
+  G -->|gRPC| A
+  G -->|gRPC| U
+
+  A -->|CRUD| DB
+  U -->|Read-Only| DB
+
+  B -->|gRPC| I
+  I -->|Read-Only| DB
 ```
 
+## 2. API Reference
+
+The service exposes three distinct gRPC services, which are also available via a RESTful JSON API.
+
+### **AuthService**
+
+Handles user registration, login, logout, and token management.
+
+| Method | REST Endpoint | Description |
+| :--- | :--- | :--- |
+| `Register` | `POST /v1/auth/register` | Creates a new user account. |
+| `Login` | `POST /v1/auth/login` | Authenticates a user and returns new tokens. |
+| `Logout` | `POST /v1/auth/logout` | Invalidates a user's refresh token. |
+| `RefreshToken` | `POST /v1/auth/refresh` | Issues a new token pair from a valid refresh token. |
+
 ---
+#### **Example: Register a New User**
+```http
+POST /v1/auth/register
+Content-Type: application/json
 
-## 2. gRPC & REST APIs
-
-### **UserService** (Public Read-Only)
-
-#### Service Definition
-```proto
-service UserService {
-  rpc FetchUserProfileByNickname (FetchUserProfileByNicknameRequest) returns (FetchUserProfileByNicknameResponse) {
-    option (google.api.http) = {
-      get: "/user/{nickname}"
-    };
-  }
+{
+  "username": "new_user",
+  "email": "user@example.com",
+  "password": "a-very-secure-password",
+  "nickname": "newbie",
+  "bio": "Just joined!",
+  "avatar_url": "https://example.com/avatar.png"
 }
 ```
-
-#### RPC: FetchUserProfileByNickname
-- **Purpose:** Retrieve a public user profile by unique nickname
-- **REST Mapping:** `GET /user/{nickname}`
-- **Input:**
-  ```proto
-  message FetchUserProfileByNicknameRequest {
-    string nickname = 1;
-  }
-  ```
-- **Output:**
-  ```proto
-  message FetchUserProfileByNicknameResponse {
-    UserProfile user = 1;
-  }
-  message UserProfile {
-    int64 id = 1;
-    string user_name = 2;
-    string email = 3;
-    string nickname = 4;
-    string bio = 5;
-    string avatar_url = 6;
-    google.protobuf.Timestamp last_login = 7;
-    google.protobuf.Timestamp created_at = 8;
-    google.protobuf.Timestamp updated_at = 9;
-  }
-  ```
-- **Example REST Call:**
-  ```http
-  GET /user/john_doe
-  Authorization: Bearer <jwt_token>
-  ```
-
 ---
 
-### **AuthService** (Authentication & Token Management)
+### **UserService**
 
-#### Service Definition
-```proto
-service AuthService {
-  rpc Register (RegisterRequest) returns (AuthTokenResponse) {
-    option (google.api.http) = {
-      post: "/auth/register"
-      body: "*"
-    };
-  }
-  rpc Login (LoginRequest) returns (AuthTokenResponse) {
-    option (google.api.http) = {
-      post: "/auth/login"
-      body: "*"
-    };
-  }
-  rpc Logout(RefreshTokenPayload) returns (LogoutResponse) {
-    option (google.api.http) = {
-      post: "/auth/logout"
-      body: "*"
-    };
-  }
-  rpc RefreshToken(RefreshTokenPayload) returns (AuthTokenResponse) {
-    option (google.api.http) = {
-      post: "/auth/refresh"
-      body: "*"
-    };
-  }
-}
+Provides public, read-only access to user profiles.
+
+| Method | REST Endpoint | Description |
+| :--- | :--- | :--- |
+| `FetchUserProfileByNickname` | `GET /v1/users/{nickname}` | Retrieves a public user profile by its unique nickname. |
+
+---
+#### **Example: Fetch a User Profile**
+```http
+GET /v1/users/newbie
+Authorization: Bearer <your-jwt-access-token>
 ```
-
-#### RPC: Register
-- **Purpose:** Register a new user and return access + refresh tokens
-- **REST Mapping:** `POST /auth/register`
-- **Input:**
-  ```proto
-  message RegisterRequest {
-    string user_name = 1;
-    string email = 2;
-    string password = 3;
-    string nickname = 4;
-    string bio = 5;
-    string avatar_url = 6;
-  }
-  ```
-- **Output:**
-  ```proto
-  message AuthTokenResponse {
-    string access_token = 1;
-    string refresh_token = 2;
-  }
-  ```
-- **Example REST Call:**
-  ```http
-  POST /auth/register
-  Content-Type: application/json
-
-  {
-    "user_name": "John Doe",
-    "email": "john@example.com",
-    "password": "password123",
-    "nickname": "johnny",
-    "bio": "Hello!",
-    "avatar_url": "https://cdn.example.com/avatar.jpg"
-  }
-  ```
-
-#### RPC: Login
-- **Purpose:** Authenticate a user and return access + refresh tokens
-- **REST Mapping:** `POST /auth/login`
-- **Input:**
-  ```proto
-  message LoginRequest {
-    string email = 1;
-    string password = 2;
-  }
-  ```
-- **Output:**
-  ```proto
-  message AuthTokenResponse {
-    string access_token = 1;
-    string refresh_token = 2;
-  }
-  ```
-- **Example REST Call:**
-  ```http
-  POST /auth/login
-  Content-Type: application/json
-
-  {
-    "email": "john@example.com",
-    "password": "password123"
-  }
-  ```
-
-#### RPC: Logout
-- **Purpose:** Invalidate a refresh token (logout)
-- **REST Mapping:** `POST /auth/logout`
-- **Input:**
-  ```proto
-  message RefreshTokenPayload {
-    string refresh_token = 1;
-  }
-  ```
-- **Output:**
-  ```proto
-  message LogoutResponse {
-    string message = 1;
-  }
-  ```
-- **Example REST Call:**
-  ```http
-  POST /auth/logout
-  Content-Type: application/json
-
-  {
-    "refresh_token": "<refresh_token>"
-  }
-  ```
-
-#### RPC: RefreshToken
-- **Purpose:** Issue new tokens from a valid refresh token
-- **REST Mapping:** `POST /auth/refresh`
-- **Input:**
-  ```proto
-  message RefreshTokenPayload {
-    string refresh_token = 1;
-  }
-  ```
-- **Output:**
-  ```proto
-  message AuthTokenResponse {
-    string access_token = 1;
-    string refresh_token = 2;
-  }
-  ```
-- **Example REST Call:**
-  ```http
-  POST /auth/refresh
-  Content-Type: application/json
-
-  {
-    "refresh_token": "<refresh_token>"
-  }
-  ```
-
 ---
 
-## 3. Authentication & Authorization
-- **JWT Authentication**: Enforced for all endpoints except registration and login.
-- **Middleware**: `UnaryAuthInterceptor` validates JWT from `Authorization: Bearer <token>` header.
-- **Claims**: `sub` (user ID), `nickname`, `exp` (expiry)
-- **Password Hashing**: Bcrypt
-- **Token Generation**: HMAC-SHA256 for JWT, random for refresh tokens
-- **Public Endpoints**: Register, Login, Logout, RefreshToken
-- **Protected Endpoints**: All others (e.g., profile lookup)
+### **InternalUserService**
 
----
+Provides internal-only, service-to-service access to user profiles. **This service is not exposed via the public API gateway.**
+
+| Method | REST Endpoint (Internal Only) | Description |
+| :--- | :--- | :--- |
+| `FetchUserProfileByID` | `GET /v1/domain/users/{user_id}` | Retrieves a user profile by its unique numeric ID. |
+
+## 3. Authentication
+
+-   **JWT Authentication**: All endpoints, except for `Login` and `Register`, are protected and require a valid JSON Web Token (JWT).
+-   **Middleware**: The `UnaryAuthInterceptor` validates the JWT provided in the `Authorization: Bearer <token>` header.
+-   **Password Hashing**: Passwords are hashed using the **Bcrypt** algorithm.
 
 ## 4. Database Schema
 
 ### Table: `users`
-| Field         | Type           | Constraints         | Description                |
-|---------------|----------------|---------------------|----------------------------|
-| id            | BIGSERIAL      | PRIMARY KEY         | User ID                    |
-| nickname      | VARCHAR(32)    | NOT NULL, UNIQUE    | Unique nickname            |
-| user_name     | VARCHAR(64)    | NOT NULL            | Display name               |
-| email         | VARCHAR(255)   | NOT NULL, UNIQUE    | User email                 |
-| password_hash | VARCHAR(100)   | NOT NULL            | Hashed password            |
-| bio           | TEXT           |                     | User bio                   |
-| avatar_url    | TEXT           |                     | Avatar image URL           |
-| last_login_at | TIMESTAMP      | DEFAULT NOW()       | Last login time            |
-| created_at    | TIMESTAMP      | NOT NULL, DEFAULT NOW() | Creation time          |
-| updated_at    | TIMESTAMP      | DEFAULT NOW()       | Last update time           |
-
-**Indexes:**
-- `UNIQUE` on `nickname` and `email`
-- Index on `nickname` (`idx_users_nickname`)
-- Trigger to auto-update `updated_at` on row update
+| Field | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BIGSERIAL` | `PRIMARY KEY` | Unique user identifier. |
+| `nickname` | `VARCHAR(32)` | `NOT NULL, UNIQUE` | Unique, user-chosen nickname. |
+| `username` | `VARCHAR(64)` | `NOT NULL` | The user's display name. |
+| `email` | `VARCHAR(255)` | `NOT NULL, UNIQUE` | The user's email address. |
+| `password_hash` | `VARCHAR(100)`| `NOT NULL` | Hashed password. |
+| `bio` | `TEXT` | | A short user biography. |
+| `avatar_url` | `TEXT` | | URL to an avatar image. |
+| `last_login_at` | `TIMESTAMP` | `DEFAULT NOW()` | Timestamp of the last login. |
+| `created_at` | `TIMESTAMP` | `NOT NULL, DEFAULT NOW()` | Timestamp of account creation. |
+| `updated_at` | `TIMESTAMP` | `DEFAULT NOW()` | Timestamp of the last profile update. |
 
 ### Table: `refresh_tokens`
-| Field      | Type      | Constraints      | Description         |
-|------------|-----------|------------------|---------------------|
-| token      | TEXT      | PRIMARY KEY      | Refresh token value |
-| user_id    | BIGINT    | NOT NULL         | FK to users.id      |
-| expires_at | TIMESTAMP | NOT NULL         | Expiry timestamp    |
+| Field | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `token` | `TEXT` | `PRIMARY KEY` | The refresh token value. |
+| `user_id` | `BIGINT` | `NOT NULL, FK to users.id` | The associated user. |
+| `expires_at` | `TIMESTAMP`| `NOT NULL` | The token's expiration timestamp. |
 
-**Indexes:**
-- Unique index on `token`
-- Index on `user_id`
+## 5. How to Run
 
----
+### **Setup**
 
-## 5. Internal Logic & Components
+1.  **Clone the repository and its submodules:**
+    ```sh
+    git clone https://github.com/googleapis/googleapis.git api/proto/third_party/googleapis
+    ```
 
-### **Services**
-- `UserService`: Handles profile lookup (read-only)
-- `AuthService`: Handles registration, login, logout, token refresh
+2.  **Set up environment variables:**
+    Create a `.env` file in the `user-service` directory with the following content:
+    ```env
+    # .env
+    DB_HOST=localhost
+    DB_PORT=5432
+    DB_USER=your_db_user
+    DB_PASSWORD=your_db_password
+    DB_NAME=user_service_db
+    JWT_SECRET_KEY=a-very-strong-and-secret-key
+    JWT_EXPIRES_IN_MINUTES=60
+    ```
 
-### **Repositories**
-- `UserRepository`: User data access
-- `AuthRepository`: Auth-related user data access
-- `TokenRepository`: Refresh token management
+### **Running the Service**
 
-### **Middleware**
-- `UnaryAuthInterceptor`: JWT validation
-- `ValidationInterceptor`: Request validation
-- `TimeoutInterceptor`: Per-method timeouts
+1.  **Start the database:**
+    ```sh
+    docker-compose up -d postgres
+    ```
 
-### **Security**
-- `JWTGenerator`: Issues and validates JWTs
-- `BcryptHasher`: Hashes and verifies passwords
+2.  **Apply database migrations:**
+    ```sh
+    make migrate-up
+    ```
 
-### **Config & Logger**
-- Centralized YAML config (`config.yaml`)
-- Structured logging via slog
+3.  **Run the service:**
+    ```sh
+    make run
+    ```
 
----
-
-## 6. Configuration & Environment
-
-### **Key Environment Variables**
-| Variable                | Description                | Example / Default         |
-|-------------------------|----------------------------|--------------------------|
-| `DB_HOST`               | Database host              | `localhost`              |
-| `DB_PORT`               | Database port              | `5432`                   |
-| `DB_USER`               | Database user              | `user`                   |
-| `DB_PASSWORD`           | Database password          | `password`               |
-| `DB_NAME`               | Database name              | `social_platform`        |
-| `JWT_SECRET_KEY`        | JWT signing secret         | `supersecret`            |
-| `JWT_EXPIRES_IN_MINUTES`| JWT expiry (minutes)       | `60`                     |
-
-### **Config File Example (`config.yaml`)**
-```yaml
-env: "dev"
-server:
-  host: "0.0.0.0"
-  port: "100"
-  debug: true
-grpc:
-  host: "0.0.0.0"
-  port: 50051
-  max_concurrent_streams: 100
-  keepalive:
-    time: 60s
-    timeout: 20s
-  tls:
-    enabled: true
-    cert_file: "/path/to/cert.pem"
-    key_file:  "/path/to/key.pem"
-database:
-  driver: "postgres"
-  host: ${DB_HOST}
-  port: ${DB_PORT}
-  user: ${DB_USER}
-  password: ${DB_PASSWORD}
-  name: ${DB_NAME}
-  sslmode: "disable"
-jwt:
-  secret: ${JWT_SECRET_KEY}
-  expires_in_minutes: ${JWT_EXPIRES_IN_MINUTES}
-security:
-  allowed_origins:
-    - "http://localhost:3000"
-logging:
-  level: "debug"
-  format: "json"
-```
-
----
-
-## 7. Error Handling
-
-| Error Variable                | Message                                 | Typical Scenario / Description                |
-|------------------------------|-----------------------------------------|-----------------------------------------------|
-| ErrInternal                  | internal error                          | Unexpected server-side error                  |
-| ErrDBFailure                 | database failure                        | Database connection/query failure             |
-| ErrMissingMetadata           | missing metadata                        | gRPC metadata missing from request            |
-| ErrUnexpectedSigningMethod   | unexpected JWT signing method           | JWT uses an unexpected signing algorithm      |
-| ErrMissingAuthToken          | authorization token is not supplied     | No JWT token provided in request              |
-| ErrInvalidToken              | invalid token                           | JWT is invalid, expired, or malformed         |
-| ErrTokenSigningFailed        | jwt signing failed                      | Failed to sign JWT during token generation    |
-| ErrTokenNotFound             | token not found                         | Refresh token not found in DB                 |
-| ErrUserNotFound              | user not found                          | User does not exist in DB                     |
-| ErrEmailTaken                | email already taken                     | Registration: email already exists            |
-| ErrNicknameTaken             | nickname already taken                  | Registration: nickname already exists         |
-| ErrInvalidPassword           | invalid password                        | Password does not match or is invalid         |
-| ErrHashingFailed             | hashing failed                          | Password hashing failed                       |
-| ErrInvalidArgument           | invalid argument                        | Invalid input data (validation failed)        |
-
-**Standard Error Format (JSON/REST):**
-```json
-{
-  "code": 404,
-  "message": "user not found"
-}
-```
-
-**gRPC Error Example:**
-```json
-{
-  "code": 5,
-  "message": "user not found"
-}
-```
-
----
-
-## 8. Deployment & Operations
-
-### **Build & Run**
-- **Build:** `make build`
-- **Run:** `make run`
-- **Test:** `make test`
-- **Format:** `make fmt`
-
-### **Database Migrations**
-- **Create migration:** `make migrate-create name=add_table`
-- **Apply migrations:** `make migrate-up`
-- **Rollback:** `make migrate-down`
-
-### **Entrypoint**
-- `cmd/server/main.go` initializes config, logger, DB, repositories, services, and starts both gRPC and REST servers.
-
-### **Docker**
-- *(Dockerfile is present but empty; add build/run instructions as needed)*
-
----
-
-## 9. Testing
-- Unit and integration tests in `internal/tests/`
-- Mocks for repositories and services
-- Test data for consistent test runs
+### **Makefile Commands**
+-   `make run`: Starts the Go service.
+-   `make build`: Compiles the application binary.
+-   `make test`: Runs all unit and integration tests.
+-   `make fmt`: Formats the Go code.
+-   `make migrate-up`: Applies all pending database migrations.
+-   `make migrate-down`: Rolls back the last applied migration.
+-   `make migrate-create name=<migration_name>`: Creates a new migration file.

@@ -1,17 +1,13 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "user_auth/user_auth.proto",
+    "title": "user_auth/v1/user_auth.proto",
     "version": "version not set"
   },
   "tags": [
     {
       "name": "AuthService",
-      "description": "Handles user registration, login, logout, and token refresh functionality.",
-      "externalDocs": {
-        "description": "Full API documentation for the AuthService",
-        "url": "https://docs.socialplatform.dev/auth"
-      }
+      "description": "Handles user registration, login, logout, and token refresh functionality."
     }
   ],
   "consumes": [
@@ -21,16 +17,16 @@
     "application/json"
   ],
   "paths": {
-    "/auth/login": {
+    "/v1/auth/login": {
       "post": {
         "summary": "User Login",
-        "description": "Validates user credentials and returns a new access and refresh token.",
+        "description": "Validates credentials (via domain fetch-by-email lookup) and returns new access + refresh tokens. This RPC is the only public entry point for authentication.",
         "operationId": "AuthService_Login",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/user_authAuthTokenResponse"
+              "$ref": "#/definitions/v1AuthTokenResponse"
             }
           },
           "default": {
@@ -46,25 +42,25 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/user_authLoginRequest"
+              "$ref": "#/definitions/v1LoginRequest"
             }
           }
         ],
         "tags": [
-          "Authentication"
+          "Auth"
         ]
       }
     },
-    "/auth/logout": {
+    "/v1/auth/logout": {
       "post": {
         "summary": "User Logout",
-        "description": "Logs the user out by invalidating the refresh token.",
+        "description": "Invalidates the provided refresh token, logging the user out.",
         "operationId": "AuthService_Logout",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/user_authLogoutResponse"
+              "$ref": "#/definitions/v1LogoutResponse"
             }
           },
           "default": {
@@ -80,25 +76,25 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/user_authRefreshTokenPayload"
+              "$ref": "#/definitions/v1RefreshTokenPayload"
             }
           }
         ],
         "tags": [
-          "Authentication"
+          "Auth"
         ]
       }
     },
-    "/auth/refresh": {
+    "/v1/auth/refresh": {
       "post": {
         "summary": "Refresh Token",
-        "description": "Refreshes an access token using a valid refresh token.",
+        "description": "Refreshes access token using a valid refresh token.",
         "operationId": "AuthService_RefreshToken",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/user_authAuthTokenResponse"
+              "$ref": "#/definitions/v1AuthTokenResponse"
             }
           },
           "default": {
@@ -114,25 +110,25 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/user_authRefreshTokenPayload"
+              "$ref": "#/definitions/v1RefreshTokenPayload"
             }
           }
         ],
         "tags": [
-          "Authentication"
+          "Auth"
         ]
       }
     },
-    "/auth/register": {
+    "/v1/auth/register": {
       "post": {
         "summary": "User Registration",
-        "description": "Registers a new user with username, email, and password, and returns tokens for authentication.",
+        "description": "Registers a new user with username, email, and password, returning new tokens.",
         "operationId": "AuthService_Register",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/user_authAuthTokenResponse"
+              "$ref": "#/definitions/v1AuthTokenResponse"
             }
           },
           "default": {
@@ -148,12 +144,12 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/user_authRegisterRequest"
+              "$ref": "#/definitions/v1RegisterRequest"
             }
           }
         ],
         "tags": [
-          "Authentication"
+          "Auth"
         ]
       }
     }
@@ -187,66 +183,94 @@
         }
       }
     },
-    "user_authAuthTokenResponse": {
+    "v1AuthTokenResponse": {
       "type": "object",
       "properties": {
         "accessToken": {
-          "type": "string"
+          "type": "string",
+          "description": "A newly issued access token (JWT), min length 10.",
+          "readOnly": true
         },
         "refreshToken": {
-          "type": "string"
+          "type": "string",
+          "description": "A newly issued refresh token (UUID format).",
+          "readOnly": true
         }
       }
     },
-    "user_authLoginRequest": {
+    "v1LoginRequest": {
       "type": "object",
       "properties": {
         "email": {
-          "type": "string"
+          "type": "string",
+          "description": "The user's email address."
         },
         "password": {
-          "type": "string"
+          "type": "string",
+          "description": "The user's password (plain text), min length 6."
         }
-      }
+      },
+      "required": [
+        "email",
+        "password"
+      ]
     },
-    "user_authLogoutResponse": {
+    "v1LogoutResponse": {
       "type": "object",
       "properties": {
         "message": {
-          "type": "string"
+          "type": "string",
+          "description": "Confirmation message on successful logout.",
+          "readOnly": true
         }
       }
     },
-    "user_authRefreshTokenPayload": {
+    "v1RefreshTokenPayload": {
       "type": "object",
       "properties": {
         "refreshToken": {
-          "type": "string"
+          "type": "string",
+          "description": "A valid UUID refresh token used to obtain new access tokens."
         }
-      }
+      },
+      "required": [
+        "refreshToken"
+      ]
     },
-    "user_authRegisterRequest": {
+    "v1RegisterRequest": {
       "type": "object",
       "properties": {
-        "userName": {
-          "type": "string"
+        "username": {
+          "type": "string",
+          "description": "The user's chosen username (3–30 alphanumeric or underscore characters)."
         },
         "email": {
-          "type": "string"
+          "type": "string",
+          "description": "The user's email address."
         },
         "password": {
-          "type": "string"
+          "type": "string",
+          "description": "The user's password (plain text), which must be at least 6 characters."
         },
         "nickname": {
-          "type": "string"
+          "type": "string",
+          "description": "The unique nickname for public profile lookup (3–30 alphanumeric or underscore)."
         },
         "bio": {
-          "type": "string"
+          "type": "string",
+          "description": "Public biography text (max 160 characters)."
         },
         "avatarUrl": {
-          "type": "string"
+          "type": "string",
+          "description": "URL to the user's avatar image."
         }
-      }
+      },
+      "required": [
+        "username",
+        "email",
+        "password",
+        "nickname"
+      ]
     }
   }
 }
