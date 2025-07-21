@@ -43,7 +43,7 @@ service InternalUserService {
   // Fetches a user profile by its numeric ID. Not exposed to external clients.
   rpc FetchUserProfileByID(FetchUserProfileByIDRequest) returns (UserProfile) {
     option (google.api.http) = {
-      get: "/v1/internal/users/{user_id}"
+      get: "/v1/domain/users/{user_id}"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary:     "Fetch User Profile by ID (Internal)"
