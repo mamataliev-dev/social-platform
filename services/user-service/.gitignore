@@ -4,5 +4,6 @@
 
 .idea
 .env
+.env.docker
 
 !*.example

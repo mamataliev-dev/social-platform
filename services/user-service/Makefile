@@ -40,3 +40,29 @@ test:
 fmt:
 	go fmt ./...
 	go vet ./...
+
+# Docker
+docker-build:
+	@echo "Building Docker image for user-service..."
+	@docker build -t user-service:latest -f Dockerfile ../..
+
+docker-run:
+	@echo "Stopping and removing existing container if it exists..."
+	-@docker stop user-service && docker rm user-service
+	@echo "Running new user-service container..."
+	@docker run -d \
+	  --name user-service \
+	  --env-file .env \
+	  -p 100:100 \
+	  -p 50051:50051 \
+	  user-service:latest
+
+docker-stop:
+	@echo "Stopping user-service container..."
+	@docker stop user-service
+
+docker-compose-up:
+	docker compose up -d
+
+docker-compose-down:
+	docker compose down
