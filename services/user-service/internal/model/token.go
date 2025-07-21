@@ -3,40 +3,28 @@ package model
 import (
 	"context"
 	"time"
+
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/domain"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/transport"
 )
 
-// Model used for internal data transfer
+// Model used for domain data transfer
 
 type TokenPair struct {
-	AccessToken  string    // JWT or opaque access token
-	RefreshToken string    // opaque refresh token (UUID)
-	ExpiresAt    time.Time // when the access token expires
-}
-
-type SaveRefreshTokenRequest struct {
-	UserID    int64
-	Token     string
-	ExpiresAt time.Time
-}
-
-type RefreshTokenRequest struct {
-	Token string
-}
-
-type CreateTokenPairRequest struct {
-	UserID   int64
-	Nickname string
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    time.Time
 }
 
 // TokenRepository defines how we store and retrieve refresh tokens.
 type TokenRepository interface {
-	SaveRefreshToken(ctx context.Context, input SaveRefreshTokenRequest) error
-	GetRefreshToken(ctx context.Context, input RefreshTokenRequest) (userID int64, err error)
-	DeleteRefreshToken(ctx context.Context, input RefreshTokenRequest) error
+	SaveRefreshToken(ctx context.Context, input domain.SaveRefreshTokenInput) error
+	GetRefreshToken(ctx context.Context, input transport.RefreshTokenRequest) (string, error)
+	DeleteRefreshToken(ctx context.Context, input transport.RefreshTokenRequest) error
 }
 
-// JWTGenerator handles creation of token pairs.
+// JWTGeneratorInterface handles creation of token pairs.
 type JWTGeneratorInterface interface {
-	CreateTokenPair(input CreateTokenPairRequest) (TokenPair, error)
+	CreateTokenPair(input domain.CreateTokenPairInput) (TokenPair, error)
 	GenerateRefreshToken() (string, error)
 }

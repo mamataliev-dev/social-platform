@@ -7,7 +7,7 @@ import (
 
 	userpb "github.com/mamataliev-dev/social-platform/api/gen/user/v1"
 	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth/v1"
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/transport"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 )
 
@@ -27,9 +27,9 @@ func timestampOrNil(t time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(t)
 }
 
-// ToUserDTO maps a RegisterRequest and its hashed password to a UserDTO.
-// Returns an empty UserDTO if req is nil.
-func (m *Mapper) ToUserDTO(req *userauthpb.RegisterRequest, hashedPassword string) model.User {
+// ToUserModel maps a RegisterRequest and its hashed password to a User.
+// Returns an empty User if req is nil.
+func (m *Mapper) ToUserModel(req *userauthpb.RegisterRequest, hashedPassword string) model.User {
 	if req == nil {
 		return model.User{}
 	}
@@ -43,46 +43,45 @@ func (m *Mapper) ToUserDTO(req *userauthpb.RegisterRequest, hashedPassword strin
 	}
 }
 
-// ToLoginInput maps a LoginRequest to a LoginInput.
+// ToLoginRequest maps a LoginRequest to a LoginInput.
 // Returns an empty LoginInput if req is nil.
-func (m *Mapper) ToLoginInput(req *userauthpb.LoginRequest) dto.LoginRequest {
+func (m *Mapper) ToLoginRequest(req *userauthpb.LoginRequest) transport.LoginRequest {
 	if req == nil {
-		return dto.LoginRequest{}
+		return transport.LoginRequest{}
 	}
-	return dto.LoginRequest{
+	return transport.LoginRequest{
 		Email:    req.GetEmail(),
 		Password: req.GetPassword(),
 	}
 }
 
-// ToAuthTokenResponse constructs an AuthTokenResponse from given access and refresh tokens.
-func (m *Mapper) ToAuthTokenResponse(accessToken, refreshToken string) *userauthpb.AuthTokenResponse {
+func (m *Mapper) ToAuthTokenResponse(pair model.TokenPair) *userauthpb.AuthTokenResponse {
 	return &userauthpb.AuthTokenResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
 	}
 }
 
-// ToFetchUserByNicknameInput maps a FetchUserProfileByNicknameRequest to FetchUserByNicknameInput.
-// Returns an empty FetchUserByNicknameInput if req is nil.
-func (m *Mapper) ToFetchUserByNicknameInput(req *userpb.FetchUserProfileByNicknameRequest) dto.FetchUserByNicknameInput {
+// ToFetchUserByNicknameRequest maps a FetchUserProfileByNicknameRequest to FetchUserByNicknameRequest.
+// Returns an empty FetchUserByNicknameRequest if req is nil.
+func (m *Mapper) ToFetchUserByNicknameRequest(req *userpb.FetchUserProfileByNicknameRequest) transport.FetchUserByNicknameRequest {
 	if req == nil {
-		return dto.FetchUserByNicknameInput{}
+		return transport.FetchUserByNicknameRequest{}
 	}
-	return dto.FetchUserByNicknameInput{Nickname: req.GetNickname()}
+	return transport.FetchUserByNicknameRequest{Nickname: req.GetNickname()}
 }
 
-// ToFetchUserByIDInput maps a FetchUserProfileByIDRequest to FetchUserByIDInput.
-// Returns an empty FetchUserByIDInput if req is nil.
-func (m *Mapper) ToFetchUserByIDInput(req *userpb.FetchUserProfileByIDRequest) dto.FetchUserByIDInput {
+// ToFetchUserByIDRequest maps a FetchUserProfileByIDRequest to FetchUserByIDRequest.
+// Returns an empty FetchUserByIDRequest if req is nil.
+func (m *Mapper) ToFetchUserByIDRequest(req *userpb.FetchUserProfileByIDRequest) transport.FetchUserByIDRequest {
 	if req == nil {
-		return dto.FetchUserByIDInput{}
+		return transport.FetchUserByIDRequest{}
 	}
-	return dto.FetchUserByIDInput{UserId: req.GetUserId()}
+	return transport.FetchUserByIDRequest{UserId: req.GetUserId()}
 }
 
 // ToFetchUserProfileResponse maps a UserDTO to FetchUserProfileResponse.
-func (m *Mapper) ToFetchUserProfileResponse(u dto.UserProfileResponse) *userpb.UserProfile {
+func (m *Mapper) ToFetchUserProfileResponse(u transport.UserProfileResponse) *userpb.UserProfile {
 	return &userpb.UserProfile{
 		UserId:    u.ID,
 		Username:  u.Username,
@@ -96,16 +95,24 @@ func (m *Mapper) ToFetchUserProfileResponse(u dto.UserProfileResponse) *userpb.U
 	}
 }
 
-// ToGetRefreshToken maps a RefreshTokenPayload to a GetRefreshToken.
+// ToGetRefreshTokenRequest maps a RefreshTokenPayload to a GetRefreshToken.
 // Returns an empty GetRefreshToken if req is nil.
-func (m *Mapper) ToGetRefreshToken(req *userauthpb.RefreshTokenPayload) dto.RefreshRequest {
+func (m *Mapper) ToGetRefreshTokenRequest(req *userauthpb.RefreshTokenPayload) transport.RefreshTokenRequest {
 	if req == nil {
-		return dto.RefreshRequest{}
+		return transport.RefreshTokenRequest{}
 	}
-	return dto.RefreshRequest{RefreshToken: req.GetRefreshToken()}
+	return transport.RefreshTokenRequest{RefreshToken: req.GetRefreshToken()}
 }
 
 // ToLogoutResponse creates a LogoutResponse with the provided message.
-func (m *Mapper) ToLogoutResponse(msg string) *userauthpb.LogoutResponse {
-	return &userauthpb.LogoutResponse{Message: msg}
+func (m *Mapper) ToLogoutResponse(domain transport.LogoutResponse) *userauthpb.LogoutResponse {
+	return &userauthpb.LogoutResponse{
+		Message: domain.Message,
+	}
+}
+
+func (m *Mapper) ToRefreshTokenRequest(req *userauthpb.RefreshTokenPayload) transport.RefreshTokenRequest {
+	return transport.RefreshTokenRequest{
+		RefreshToken: req.GetRefreshToken(),
+	}
 }

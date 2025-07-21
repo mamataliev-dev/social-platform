@@ -1,8 +1,6 @@
-package dto
+package transport
 
 import "time"
-
-// DTO used for data transfer over the HTTP
 
 // UserProfileResponse is returned on GET v1/users/{nickname}, v1/users/{email}, v1/users/{user_id}
 type UserProfileResponse struct {
@@ -17,21 +15,21 @@ type UserProfileResponse struct {
 	LastLogin time.Time `json:"last_login"`
 }
 
-// FetchUserByNicknameInput represents the HTTP path parameters for
+// FetchUserByNicknameRequest represents the HTTP path parameters for
 // GET /v1/users/{nickname}, used to look up a public user profile.
-type FetchUserByNicknameInput struct {
-	Nickname string
+type FetchUserByNicknameRequest struct {
+	Nickname string `json:"nickname"`
 }
 
-// FetchUserByEmailInput represents the HTTP path parameters for
+// FetchUserByEmailRequest represents the HTTP path parameters for
 // INTERNAL USE ONLY: called by AuthService.Login to load a user’s stored password hash.
-type FetchUserByEmailInput struct {
-	Email string
+type FetchUserByEmailRequest struct {
+	Email string `json:"email"`
 }
 
-// FetchUserByIDInput represents the HTTP path parameters for
-// GET /v1/internal/users/{user_id}.
+// FetchUserByIDRequest represents the HTTP path parameters for
+// GET /v1/domain/users/{user_id}.
 // Internal-only user profile lookups by ID
-type FetchUserByIDInput struct {
-	UserId int64
+type FetchUserByIDRequest struct {
+	UserId int64 `json:"user_id"`
 }

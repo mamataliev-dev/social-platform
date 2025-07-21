@@ -1,4 +1,4 @@
-package dto
+package transport
 
 // DTO used for data transfer over the HTTP
 

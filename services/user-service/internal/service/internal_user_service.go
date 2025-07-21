@@ -10,29 +10,29 @@ import (
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/utils"
 )
 
-type UserService struct {
-	userpb.UnimplementedUserServiceServer
+type InternalUserService struct {
+	userpb.UnimplementedInternalUserServiceServer
 	repo      model.UserRepository
 	converter mapper.Converter
 }
 
-func NewUserService(repo model.UserRepository, converter mapper.Converter) *UserService {
-	return &UserService{
+func NewInternalUserService(repo model.UserRepository, converter mapper.Converter) *InternalUserService {
+	return &InternalUserService{
 		repo:      repo,
 		converter: converter,
 	}
 }
 
-func (s *UserService) FetchUserProfileByNickname(ctx context.Context, req *userpb.FetchUserProfileByNicknameRequest) (*userpb.UserProfile, error) {
-	mUser := s.converter.ToFetchUserByNicknameRequest(req)
+func (s *InternalUserService) FetchUserProfileByID(ctx context.Context, req *userpb.FetchUserProfileByIDRequest) (*userpb.UserProfile, error) {
+	mUser := s.converter.ToFetchUserByIDRequest(req)
 
-	user, err := s.repo.FetchUserByNickname(ctx, mUser)
+	user, err := s.repo.FetchUserByID(ctx, mUser)
 	if err != nil {
-		slog.Error("failed to fetch user byu nickname", "err", err)
+		slog.Error("failed to fetch user by id", "err", err)
 		return nil, utils.GrpcUserNotFoundError(err)
 	}
 
-	slog.Info("fetched user by nickname", "username", user.Username, "nickname", user.Nickname)
+	slog.Info("fetched user by id", "nickname", user.Nickname, "user_id", user.ID)
 	resp := s.converter.ToFetchUserProfileResponse(user)
 	return resp, nil
 }

@@ -3,36 +3,47 @@ package service
 import (
 	"context"
 	"errors"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"log/slog"
 	"strconv"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	userauthpb "github.com/mamataliev-dev/social-platform/api/gen/user_auth/v1"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/domain"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/transport"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/mapper"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/security"
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/utils"
 )
 
 type AuthService struct {
 	userauthpb.UnimplementedAuthServiceServer
 	authRepo  model.AuthRepository
+	userRepo  model.UserRepository
 	tokenRepo model.TokenRepository
 	jwtGen    model.JWTGeneratorInterface
 	hasher    security.Hasher
+	converter mapper.Converter
 }
 
 func NewAuthService(
 	authRepo model.AuthRepository,
+	userRepo model.UserRepository,
 	tokenRepo model.TokenRepository,
 	jwtGen model.JWTGeneratorInterface,
-	hasher security.Hasher) *AuthService {
+	hasher security.Hasher,
+	converter mapper.Converter) *AuthService {
 	return &AuthService{
 		authRepo:  authRepo,
+		userRepo:  userRepo,
 		tokenRepo: tokenRepo,
 		jwtGen:    jwtGen,
 		hasher:    hasher,
+		converter: converter,
 	}
 }
 
@@ -42,73 +53,70 @@ func (s *AuthService) Register(ctx context.Context, req *userauthpb.RegisterRequ
 	hashedPwd, err := s.hasher.HashPassword(req.GetPassword())
 	if err != nil {
 		slog.Error("failed to hash password", "err", err)
-		return nil, status.Error(codes.Internal, errs.ErrHashingFailed.Error())
+		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	mUser := model.MapRegisterRequestToDomainUser(req, hashedPwd)
-	newUser, err := s.authRepo.Create(ctx, mUser)
+	mUser := s.converter.ToUserModel(req, hashedPwd)
+	newUser, err := s.authRepo.CreateUser(ctx, mUser)
 	if err != nil {
-		slog.Error("failed to create user", "err", err)
-		if grpcErr := checkUniqueCredentialsError(err); grpcErr != nil {
-			return nil, grpcErr
+		slog.Error("failed to create new user", "err", err)
+		if grpcCredentialsErr := checkUniqueCredentialsError(err); grpcCredentialsErr != nil {
+			return nil, grpcCredentialsErr
 		}
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	slog.Info("registered new user", "username", newUser.UserName, "id", newUser.ID)
+	slog.Info("registered new user", "username", newUser.Username, "id", newUser.ID)
 
-	tokenPair, err := s.jwtGen.CreateTokenPair(newUser.ID, newUser.Nickname)
+	tokenPair, err := s.jwtGen.CreateTokenPair(createTokenRequest(newUser))
 	if err != nil {
 		slog.Error("failed to generate token pair", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	err = s.tokenRepo.SaveRefreshToken(ctx, newUser.ID, tokenPair.RefreshToken, expiresAt)
+	err = s.tokenRepo.SaveRefreshToken(ctx, saveTokenRequest(tokenPair, newUser, expiresAt))
 	if err != nil {
 		slog.Error("failed to save refresh token", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	resp := model.MapRefreshTokenToAuthResponse(tokenPair.AccessToken, tokenPair.RefreshToken)
+	resp := s.converter.ToAuthTokenResponse(tokenPair)
 	return resp, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, req *userauthpb.LoginRequest) (*userauthpb.AuthTokenResponse, error) {
-	mUser := model.MapLoginRequestToInput(req)
+	mUser := s.converter.ToLoginRequest(req)
 
 	user, err := s.authRepo.FetchUserByEmail(ctx, mUser.Email)
 	if err != nil {
 		slog.Error("failed to login", "err", err)
-		if errors.Is(err, errs.ErrUserNotFound) {
-			return nil, status.Error(codes.NotFound, errs.ErrUserNotFound.Error())
-		}
-		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
+		return nil, utils.GrpcUserNotFoundError(err)
 	}
 
 	if err := s.hasher.VerifyPassword(user.PasswordHash, req.GetPassword()); err != nil {
 		return nil, status.Error(codes.Unauthenticated, errs.ErrInvalidPassword.Error())
 	}
 
-	slog.Info("login user", "username", user.UserName, "id", user.ID)
+	slog.Info("login user", "nickname", user.Nickname, "id", user.ID)
 
-	tokenPair, err := s.jwtGen.CreateTokenPair(user.ID, user.Nickname)
+	tokenPair, err := s.jwtGen.CreateTokenPair(createTokenRequest(user))
 	if err != nil {
 		slog.Error("failed to generate token pair", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	err = s.tokenRepo.SaveRefreshToken(ctx, user.ID, tokenPair.RefreshToken, expiresAt)
+	err = s.tokenRepo.SaveRefreshToken(ctx, saveTokenRequest(tokenPair, user, expiresAt))
 	if err != nil {
 		slog.Error("failed to save refresh token", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	resp := model.MapRefreshTokenToAuthResponse(tokenPair.AccessToken, tokenPair.RefreshToken)
+	resp := s.converter.ToAuthTokenResponse(tokenPair)
 	return resp, nil
 }
 
 func (s *AuthService) Logout(ctx context.Context, req *userauthpb.RefreshTokenPayload) (*userauthpb.LogoutResponse, error) {
-	refreshToken := model.MapRefreshTokenRequestToInput(req)
+	refreshToken := s.converter.ToGetRefreshTokenRequest(req)
 
 	err := s.tokenRepo.DeleteRefreshToken(ctx, refreshToken)
 	if err != nil {
@@ -118,18 +126,17 @@ func (s *AuthService) Logout(ctx context.Context, req *userauthpb.RefreshTokenPa
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	resp := model.MapToLogoutResponse("logged out successfully")
-	return resp, nil
+	msg := transport.LogoutResponse{
+		Message: "Logout successfully",
+	}
+
+	return s.converter.ToLogoutResponse(msg), nil
 }
 
 func (s *AuthService) RefreshToken(ctx context.Context, req *userauthpb.RefreshTokenPayload) (*userauthpb.AuthTokenResponse, error) {
-	/*
-		The user should be automatically redirected to the /auth/refresh page on the user's side (frontend)
-		In case if user's token has expired
-	*/
-	refreshToken := model.MapRefreshTokenRequestToInput(req)
+	input := s.converter.ToRefreshTokenRequest(req)
 
-	userIDStr, err := s.tokenRepo.GetRefreshToken(ctx, refreshToken)
+	userIDStr, err := s.tokenRepo.GetRefreshToken(ctx, input)
 	if err != nil {
 		slog.Error("failed to fetch refresh token", "err", err)
 		if errors.Is(err, errs.ErrTokenNotFound) {
@@ -144,30 +151,40 @@ func (s *AuthService) RefreshToken(ctx context.Context, req *userauthpb.RefreshT
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	user, err := s.authRepo.GetUserByID(ctx, userID)
+	reqID := transport.FetchUserByIDRequest{UserId: userID}
+	userDTO, err := s.userRepo.FetchUserByID(ctx, reqID)
 	if err != nil {
 		slog.Error("failed to get user by ID", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	if err := s.tokenRepo.DeleteRefreshToken(ctx, refreshToken); err != nil {
+	if err := s.tokenRepo.DeleteRefreshToken(ctx, input); err != nil {
 		slog.Error("failed to delete old refresh token", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	tokenPair, err := s.jwtGen.CreateTokenPair(user.ID, user.Nickname)
+	pairIn := domain.CreateTokenPairInput{
+		UserID:   userDTO.ID,
+		Nickname: userDTO.Nickname,
+	}
+	newPair, err := s.jwtGen.CreateTokenPair(pairIn)
 	if err != nil {
 		slog.Error("failed to generate new token pair", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
-	if err := s.tokenRepo.SaveRefreshToken(ctx, user.ID, tokenPair.RefreshToken, expiresAt); err != nil {
+	saveIn := domain.SaveRefreshTokenInput{
+		UserID:    userDTO.ID,
+		Token:     newPair.RefreshToken,
+		ExpiresAt: expiresAt,
+	}
+	if err := s.tokenRepo.SaveRefreshToken(ctx, saveIn); err != nil {
 		slog.Error("failed to save new refresh token", "err", err)
 		return nil, status.Error(codes.Internal, errs.ErrInternal.Error())
 	}
 
-	resp := model.MapRefreshTokenToAuthResponse(tokenPair.AccessToken, tokenPair.RefreshToken)
+	resp := s.converter.ToAuthTokenResponse(newPair)
 	return resp, nil
 }
 
@@ -179,4 +196,19 @@ func checkUniqueCredentialsError(err error) error {
 		return status.Error(codes.AlreadyExists, errs.ErrNicknameTaken.Error())
 	}
 	return nil
+}
+
+func createTokenRequest(user model.User) domain.CreateTokenPairInput {
+	return domain.CreateTokenPairInput{
+		UserID:   user.ID,
+		Nickname: user.Nickname,
+	}
+}
+
+func saveTokenRequest(token model.TokenPair, user model.User, expiresAt time.Time) domain.SaveRefreshTokenInput {
+	return domain.SaveRefreshTokenInput{
+		Token:     token.RefreshToken,
+		UserID:    user.ID,
+		ExpiresAt: expiresAt,
+	}
 }

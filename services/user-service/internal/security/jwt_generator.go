@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/domain"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/model"
 )
@@ -23,11 +24,11 @@ func NewJWTGenerator(secretKey []byte, lifetime time.Duration) *JWTGenerator {
 	return &JWTGenerator{SecretKey: secretKey, TokenLifetime: lifetime}
 }
 
-func (g *JWTGenerator) CreateTokenPair(userID int64, nickname string) (model.TokenPair, error) {
+func (g *JWTGenerator) CreateTokenPair(user domain.CreateTokenPairInput) (model.TokenPair, error) {
 	// Access Token
 	claims := jwt.MapClaims{
-		"sub":      userID,
-		"nickname": nickname,
+		"sub":      user.UserID,
+		"nickname": user.Nickname,
 		"exp":      time.Now().Add(g.TokenLifetime).Unix(),
 		"iat":      time.Now().Unix(),
 	}

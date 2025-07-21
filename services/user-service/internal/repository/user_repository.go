@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto"
+
+	"github.com/mamataliev-dev/social-platform/services/user-service/internal/dto/transport"
 	"github.com/mamataliev-dev/social-platform/services/user-service/internal/errs"
 )
 
@@ -18,9 +19,9 @@ func NewUserPostgres(db *sql.DB) *UserPostgres {
 }
 
 // FetchUserByNickname retrieves a user by their unique nickname.
-func (r *UserPostgres) FetchUserByNickname(ctx context.Context, input dto.FetchUserByNicknameInput) (dto.UserProfileResponse, error) {
+func (r *UserPostgres) FetchUserByNickname(ctx context.Context, input transport.FetchUserByNicknameRequest) (transport.UserProfileResponse, error) {
 	const query = `
-        SELECT id, user_name, email, nickname, bio, avatar_url, last_login_at, created_at, updated_at
+        SELECT id, username, email, nickname, bio, avatar_url, last_login, created_at, updated_at
         FROM users
         WHERE nickname = $1
     `
@@ -29,10 +30,10 @@ func (r *UserPostgres) FetchUserByNickname(ctx context.Context, input dto.FetchU
 	return scanUserProfile(row)
 }
 
-// FetchUserByID retrieves a user by their id (internal uses only).
-func (r *UserPostgres) FetchUserByID(ctx context.Context, input dto.FetchUserByIDInput) (dto.UserProfileResponse, error) {
+// FetchUserByID retrieves a user by their id (domain uses only).
+func (r *UserPostgres) FetchUserByID(ctx context.Context, input transport.FetchUserByIDRequest) (transport.UserProfileResponse, error) {
 	query := `
-		SELECT id, user_name, email, nickname, bio, avatar_url, last_login_at, created_at, updated_at 
+		SELECT id, username, email, nickname, bio, avatar_url, last_login, created_at, updated_at 
 		FROM users 
 		WHERE id = $1
 	`
@@ -43,8 +44,8 @@ func (r *UserPostgres) FetchUserByID(ctx context.Context, input dto.FetchUserByI
 }
 
 // scanUserProfile scans a sql.Row into a UserProfileResponse.
-func scanUserProfile(row *sql.Row) (dto.UserProfileResponse, error) {
-	var u dto.UserProfileResponse
+func scanUserProfile(row *sql.Row) (transport.UserProfileResponse, error) {
+	var u transport.UserProfileResponse
 	if err := row.Scan(
 		&u.ID,
 		&u.Username,
@@ -56,7 +57,7 @@ func scanUserProfile(row *sql.Row) (dto.UserProfileResponse, error) {
 		&u.CreatedAt,
 		&u.UpdatedAt,
 	); err != nil {
-		return dto.UserProfileResponse{}, mapDBError(err)
+		return transport.UserProfileResponse{}, mapDBError(err)
 	}
 	return u, nil
 }

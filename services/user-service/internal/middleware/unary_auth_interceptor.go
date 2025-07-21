@@ -15,11 +15,17 @@ import (
 )
 
 func UnaryAuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	//publicEndpoints := map[string]bool{
+	//	"/user_auth.AuthService/Register":     true,
+	//	"/user_auth.AuthService/Login":        true,
+	//	"/user_auth.AuthService/Logout":       true,
+	//	"/user_auth.AuthService/RefreshToken": true,
+	//}
 	publicEndpoints := map[string]bool{
-		"/user_auth.AuthService/Register":     true,
-		"/user_auth.AuthService/Login":        true,
-		"/user_auth.AuthService/Logout":       true,
-		"/user_auth.AuthService/RefreshToken": true,
+		"/user.auth.v1.AuthService/Register":     true,
+		"/user.auth.v1.AuthService/Login":        true,
+		"/user.auth.v1.AuthService/Logout":       true,
+		"/user.auth.v1.AuthService/RefreshToken": true,
 	}
 
 	if publicEndpoints[info.FullMethod] {
