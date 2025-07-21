@@ -40,7 +40,7 @@ service AuthService {
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "User Login"
-      description: "Validates credentials (via internal fetch-by-email lookup) and returns new access + refresh tokens. This RPC is the only public entry point for authentication."
+      description: "Validates credentials (via domain fetch-by-email lookup) and returns new access + refresh tokens. This RPC is the only public entry point for authentication."
       tags: ["Auth"]
     };
   }
@@ -113,7 +113,7 @@ message LoginRequest {
 message RefreshTokenPayload {
   // A valid UUID refresh token used to obtain new access tokens.
   string refresh_token = 1 [(google.api.field_behavior) = REQUIRED,
-    (validate.rules).string = {uuid: true}];
+    (validate.rules).string = {min_len: 32}];
 }
 
 message AuthTokenResponse {
