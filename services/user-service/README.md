@@ -12,6 +12,7 @@ The user-service is a Go-based microservice responsible for user management and 
 
 ### **Project Structure**
 
+```
 /user-service
 |-- cmd/server/main.go         # Service entrypoint: initializes and starts gRPC/REST servers.
 |-- internal/                  # All core application logic, not exposed to other services.
@@ -32,6 +33,7 @@ The user-service is a Go-based microservice responsible for user management and 
 |-- Dockerfile                 # Containerization instructions.
 |-- Makefile                   # Build, run, and test commands.
 |-- README.md                  # This file.
+```
 
 ### **Architecture Diagram**
 
