@@ -1,4 +1,3 @@
-// Package repository provides PostgreSQL implementations of chat-service repositories.
 package repository
 
 import (

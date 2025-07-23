@@ -1,4 +1,3 @@
-// Package mapper handles conversions between DTOs, models, and gRPC messages.
 package mapper
 
 import (

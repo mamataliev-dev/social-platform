@@ -1,55 +1,9 @@
-//package main
-//
-//import (
-//	"fmt"
-//	"log"
-//	"log/slog"
-//	"os"
-//
-//	"github.com/joho/godotenv"
-//
-//	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/config"
-//	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/logger"
-//	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/repository"
-//)
-//
-//func main() {
-//	// Load environment variables
-//	if err := godotenv.Load(".env"); err != nil {
-//		log.Fatal("Error loading .env file: ", err)
-//	}
-//
-//	// Load configuration
-//	cfg, err := config.Load("config.yaml")
-//	if err != nil {
-//		slog.Error("Failed to load configuration", "error", err)
-//		os.Exit(1)
-//	}
-//
-//	// Initialize logger
-//	logger.SetupLogger(cfg.Env)
-//	slog.Info("Logger initialized", "env", cfg.Env)
-//
-//	// Setup Postgres connection + repository
-//	db, err := repository.NewPostgresConnection(cfg)
-//	if err != nil {
-//		slog.Error("Failed to connect to Postgres", "error", err)
-//		os.Exit(1)
-//	}
-//
-//	fmt.Println(db)
-//}
-
-// Package main is the entrypoint for the chat-service. It loads configuration,
-// initializes dependencies (logger, database, repositories, services), and starts
-// both gRPC and HTTP REST servers. This package follows the Dependency Inversion
-// principle by injecting abstractions for repositories, services, and utilities.
-// It is closed for modification but open for extension via configuration and DI.
 package main
 
 import (
 	"context"
 	"fmt"
+	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/middleware"
 	"log"
 	"log/slog"
 	"net"
@@ -124,7 +78,11 @@ func run() error {
 	defer stop()
 
 	// gRPC server setup
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			middleware.UnaryAuthInterceptor,
+		),
+	)
 
 	chatpb.RegisterChatServiceServer(grpcServer, roomSvc)
 	reflection.Register(grpcServer)

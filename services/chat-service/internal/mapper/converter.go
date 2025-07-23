@@ -1,4 +1,3 @@
-// Package mapper provides a top-level entrypoint for all domain mappers.
 package mapper
 
 // Mappers groups every service-specific mapper under one struct,
