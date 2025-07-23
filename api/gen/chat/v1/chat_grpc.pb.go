@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: chat/chat.proto
+// source: chat/v1/chat.proto
 
 package chatpb
 
@@ -19,26 +19,30 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_CreateRoom_FullMethodName     = "/chat.ChatService/CreateRoom"
-	ChatService_GetUserRooms_FullMethodName   = "/chat.ChatService/GetUserRooms"
-	ChatService_SendMessage_FullMethodName    = "/chat.ChatService/SendMessage"
-	ChatService_GetMessages_FullMethodName    = "/chat.ChatService/GetMessages"
-	ChatService_StreamMessages_FullMethodName = "/chat.ChatService/StreamMessages"
+	ChatService_CreateRoom_FullMethodName     = "/chat.v1.ChatService/CreateRoom"
+	ChatService_GetUserRooms_FullMethodName   = "/chat.v1.ChatService/GetUserRooms"
+	ChatService_SendMessage_FullMethodName    = "/chat.v1.ChatService/SendMessage"
+	ChatService_GetMessages_FullMethodName    = "/chat.v1.ChatService/GetMessages"
+	ChatService_StreamMessages_FullMethodName = "/chat.v1.ChatService/StreamMessages"
 )
 
 // ChatServiceClient is the client API for ChatService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// ====================================================================
+// ChatService: handles room creation and messaging
+// ====================================================================
 type ChatServiceClient interface {
-	// Creates or fetches a 1-on-1 room between two users
+	// Creates or fetches a 1-on-1 room between two users.
 	CreateRoom(ctx context.Context, in *CreateRoomRequest, opts ...grpc.CallOption) (*CreateRoomResponse, error)
-	// Gets all rooms for a user
+	// Gets all rooms for a user.
 	GetUserRooms(ctx context.Context, in *GetUserRoomsRequest, opts ...grpc.CallOption) (*GetUserRoomsResponse, error)
-	// Sends a message in a room
+	// Sends a message in a room.
 	SendMessage(ctx context.Context, in *SendMessageRequest, opts ...grpc.CallOption) (*SendMessageResponse, error)
-	// Gets historical messages for a room
+	// Gets historical messages for a room.
 	GetMessages(ctx context.Context, in *GetMessagesRequest, opts ...grpc.CallOption) (*GetMessagesResponse, error)
-	// Streams new messages from a room (gRPC only)
+	// Streams new messages from a room (gRPC-only).
 	StreamMessages(ctx context.Context, in *StreamMessagesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatMessage], error)
 }
 
@@ -112,16 +116,20 @@ type ChatService_StreamMessagesClient = grpc.ServerStreamingClient[ChatMessage]
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
+//
+// ====================================================================
+// ChatService: handles room creation and messaging
+// ====================================================================
 type ChatServiceServer interface {
-	// Creates or fetches a 1-on-1 room between two users
+	// Creates or fetches a 1-on-1 room between two users.
 	CreateRoom(context.Context, *CreateRoomRequest) (*CreateRoomResponse, error)
-	// Gets all rooms for a user
+	// Gets all rooms for a user.
 	GetUserRooms(context.Context, *GetUserRoomsRequest) (*GetUserRoomsResponse, error)
-	// Sends a message in a room
+	// Sends a message in a room.
 	SendMessage(context.Context, *SendMessageRequest) (*SendMessageResponse, error)
-	// Gets historical messages for a room
+	// Gets historical messages for a room.
 	GetMessages(context.Context, *GetMessagesRequest) (*GetMessagesResponse, error)
-	// Streams new messages from a room (gRPC only)
+	// Streams new messages from a room (gRPC-only).
 	StreamMessages(*StreamMessagesRequest, grpc.ServerStreamingServer[ChatMessage]) error
 	mustEmbedUnimplementedChatServiceServer()
 }
@@ -256,7 +264,7 @@ type ChatService_StreamMessagesServer = grpc.ServerStreamingServer[ChatMessage]
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChatService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "chat.ChatService",
+	ServiceName: "chat.v1.ChatService",
 	HandlerType: (*ChatServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -283,5 +291,5 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "chat/chat.proto",
+	Metadata: "chat/v1/chat.proto",
 }

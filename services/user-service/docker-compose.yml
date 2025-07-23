@@ -27,8 +27,8 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "10:10"      # HTTP port
-      - "50000:50000"  # gRPC port
+      - "100:100"      # HTTP port
+      - "50100:50100"  # gRPC port
 
 volumes:
   pgdata:

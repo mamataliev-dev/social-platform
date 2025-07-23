@@ -27,7 +27,7 @@ migrate-down:
 	migrate -path $(MIGRATIONS_DIR) -database "$(DB_URL)" down 1
 
 migrate-force:
-	migrate -path $(MIGRATIONS_DIR) -database "$(DB_URL)" force
+	migrate -path $(MIGRATIONS_DIR) -database "$(DB_URL)" force 1
 
 migrate-version:
 	migrate -path $(MIGRATIONS_DIR) -database "$(DB_URL)" version
