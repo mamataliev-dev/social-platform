@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/middleware"
 	"log"
 	"log/slog"
 	"net"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+
 	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -24,12 +24,12 @@ import (
 	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/config"
 	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/logger"
 	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/mapper"
+	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/middleware"
 	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/repository"
 	"github.com/mamataliev-dev/social-platform/services/chat-service/internal/service"
 )
 
-// main is the entrypoint for the user-service application. It delegates startup
-// logic to run and logs any fatal errors.
+// main is the entrypoint for the chat-service application
 func main() {
 	if err := run(); err != nil {
 		log.Fatalf("application error: %v", err)
@@ -37,9 +37,7 @@ func main() {
 }
 
 // run loads configuration, sets up logging, initializes the database and all
-// service dependencies, and starts both gRPC and HTTP REST servers. It handles
-// graceful shutdown on interrupt signals. All dependencies are injected via
-// constructors, following Dependency Inversion and Single Responsibility.
+// service dependencies, and starts both gRPC and HTTP REST servers.
 func run() error {
 	// Load environment and configuration
 	if err := godotenv.Load(); err != nil {
