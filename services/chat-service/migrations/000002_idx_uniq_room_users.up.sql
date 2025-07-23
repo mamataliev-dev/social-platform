@@ -1,7 +1,7 @@
 CREATE UNIQUE INDEX uniq_room_users ON rooms (
-  LEAST(user_a_id, user_b_id),
-  GREATEST(user_a_id, user_b_id)
+  LEAST(initiator_id, participant_id),
+  GREATEST(initiator_id, participant_id)
 );
 
-CREATE INDEX idx_rooms_user_a ON rooms (user_a_id);
-CREATE INDEX idx_rooms_user_b ON rooms (user_b_id);
+CREATE INDEX idx_rooms_initiator_id ON rooms (initiator_id);
+CREATE INDEX idx_rooms_participant_id ON rooms (participant_id);

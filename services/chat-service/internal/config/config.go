@@ -1,3 +1,7 @@
+// Package config provides configuration loading and parsing for the user-service.
+// It supports YAML-based config files and environment variable expansion, enabling
+// flexible deployment and adherence to the Single Responsibility and Dependency
+// Inversion principles.
 package config
 
 import (
@@ -9,6 +13,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config holds all configuration for the user-service, including server, gRPC,
+// database, security, logging. It is designed for extension
+// without modification (Open/Closed Principle).
 type Config struct {
 	Env      string     `yaml:"env"`
 	Server   Server     `yaml:"server"`
@@ -16,26 +23,29 @@ type Config struct {
 	Database Database   `yaml:"database"`
 	Security Security   `yaml:"security"`
 	Logging  Logging    `yaml:"logging"`
-	JWT      JWT        `yaml:"jwt"`
 }
 
+// Server contains HTTP server configuration parameters.
 type Server struct {
 	Host  string `yaml:"host"`
 	Port  string `yaml:"port"`
 	Debug bool   `yaml:"debug"`
 }
 
+// KeepaliveConfig defines gRPC keepalive settings.
 type KeepaliveConfig struct {
 	Time    time.Duration `yaml:"time"`
 	Timeout time.Duration `yaml:"timeout"`
 }
 
+// TLSConfig holds TLS settings for secure gRPC communication.
 type TLSConfig struct {
 	Enabled  bool   `yaml:"enabled"`
 	CertFile string `yaml:"cert_file"`
 	KeyFile  string `yaml:"key_file"`
 }
 
+// GRPCConfig contains gRPC server configuration parameters.
 type GRPCConfig struct {
 	Host                 string          `yaml:"host"`
 	Port                 int             `yaml:"port"`
@@ -44,6 +54,7 @@ type GRPCConfig struct {
 	TLS                  TLSConfig       `yaml:"tls"`
 }
 
+// Database holds database connection configuration.
 type Database struct {
 	Driver   string `yaml:"driver"`
 	Host     string `yaml:"host"`
@@ -54,20 +65,20 @@ type Database struct {
 	SSLMode  string `yaml:"sslmode"`
 }
 
-type JWT struct {
-	Secret       string `yaml:"secret"`
-	ExpiresInMin int    `yaml:"expires_in_minutes"`
-}
-
+// Security holds security-related configuration, such as allowed CORS origins.
 type Security struct {
 	AllowedOrigins []string `yaml:"allowed_origins"`
 }
 
+// Logging defines logging level and format configuration.
 type Logging struct {
 	Level  string `yaml:"level"`
 	Format string `yaml:"format"`
 }
 
+// Load reads and parses the configuration from the given YAML file path, expanding
+// environment variables. It returns a Config struct or an error. This function
+// enables Dependency Inversion by decoupling config source from consumers.
 func Load(path string) (*Config, error) {
 	var cfg Config
 

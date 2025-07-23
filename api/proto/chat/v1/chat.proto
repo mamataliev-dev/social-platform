@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package chat.v1;
+option go_package = "github.com/mamataliev-dev/social-platform/api/gen/chat/v1/chatpb";
+
+import "validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "third_party/protoc-gen-openapiv2/options/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+// ====================================================================
+// ChatService: handles room creation and messaging
+// ====================================================================
+service ChatService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manages chat rooms and messaging"
+  };
+
+  // ---- Room Management ----
+
+  // Creates or fetches a 1-on-1 room between two users.
+  rpc CreateRoom(CreateRoomRequest) returns (CreateRoomResponse) {
+    option (google.api.http) = {
+      post: "/v1/rooms"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary:     "Create or Fetch Room"
+      description: "Creates a new one-on-one chat room or returns an existing one."
+      tags:        ["Room Management"]
+    };
+  }
+
+  // Gets all rooms for a user.
+  rpc GetUserRooms(GetUserRoomsRequest) returns (GetUserRoomsResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/rooms"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary:     "List User Rooms"
+      description: "Retrieves all chat rooms that the user is part of."
+      tags:        ["Room Management"]
+    };
+  }
+
+  // ---- Messaging ----
+
+  // Sends a message in a room.
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
+    option (google.api.http) = {
+      post: "/v1/rooms/{room_id}/messages"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary:     "Send Message"
+      description: "Posts a new message to the specified chat room."
+      tags:        ["Messaging"]
+    };
+  }
+
+  // Gets historical messages for a room.
+  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse) {
+    option (google.api.http) = {
+      get: "/v1/rooms/{room_id}/messages"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary:     "List Messages"
+      description: "Retrieves past messages in the specified chat room with pagination."
+      tags:        ["Messaging"]
+    };
+  }
+
+  // Streams new messages from a room (gRPC-only).
+  rpc StreamMessages(StreamMessagesRequest) returns (stream ChatMessage) {
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary:     "Stream Messages"
+      description: "Streams live messages from the specified chat room over gRPC."
+      tags:        ["Messaging"]
+    };
+  }
+}
+
+// ====================================================================
+// Room Management Messages
+// ====================================================================
+message CreateRoomRequest {
+  // The ID of the user initiating the room
+  int64 initiator_id = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // The ID of the invited user
+  int64 participant_id = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CreateRoomResponse {
+  // The room that was created or fetched
+  Room room = 1;
+}
+
+message GetUserRoomsRequest {
+  // User's id for which to list rooms
+  string user_id = 1 [(google.api.field_behavior) = REQUIRED, (validate.rules).string = {uuid: true}];
+}
+
+message GetUserRoomsResponse {
+  // List of rooms the user belongs to
+  repeated Room rooms = 1;
+}
+
+message Room {
+  // Unique room UUID
+  string id = 1 [(google.api.field_behavior) = OUTPUT_ONLY, (validate.rules).string = {uuid: true}];
+  // First participant's user ID
+  int64 initiator_id = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Second participant's user ID
+  int64 participant_id = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Room creation timestamp
+  google.protobuf.Timestamp created_at = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ====================================================================
+// Messaging Messages
+// ====================================================================
+message SendMessageRequest {
+  // Room UUID
+  string room_id = 1 [(google.api.field_behavior) = REQUIRED, (validate.rules).string = {uuid: true}];
+  // Sender's user ID
+  int64 sender_id = 2 [(google.api.field_behavior) = REQUIRED];
+  // Message content
+  string content = 3 [(google.api.field_behavior) = REQUIRED, (validate.rules).string = {min_len: 1, max_len: 1000}];
+}
+
+message SendMessageResponse {
+  // The message that was sent
+  ChatMessage message = 1;
+}
+
+message GetMessagesRequest {
+  // Room UUID
+  string room_id = 1 [(google.api.field_behavior) = REQUIRED, (validate.rules).string = {uuid: true}];
+  // Maximum number of messages to return
+  int32 limit = 2 [(validate.rules).int32 = {gt: 0, lte: 100}];
+  // Offset for pagination
+  int32 offset = 3 [(validate.rules).int32 = {gte: 0}];
+}
+
+message GetMessagesResponse {
+  // List of retrieved messages
+  repeated ChatMessage messages = 1;
+}
+
+message StreamMessagesRequest {
+  // Room UUID to stream messages for
+  string room_id = 1 [(google.api.field_behavior) = REQUIRED, (validate.rules).string = {uuid: true}];
+}
+
+message ChatMessage {
+  // Unique message UUID
+  string id = 1;
+  // Room UUID
+  string room_id = 2;
+  // Sender ID
+  int64 sender_id = 3;
+  // Content of the message
+  string content = 4;
+  // Timestamp when the message was created
+  google.protobuf.Timestamp timestamp = 5;
+}
