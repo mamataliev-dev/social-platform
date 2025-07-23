@@ -1,4 +1,9 @@
+# macOS system files
+.DS_Store
+**/.DS_Store
+
 .idea
 .env
+.env.docker
 
 !*.example
